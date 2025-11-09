@@ -1,0 +1,63 @@
+agents:
+  - name: user_proxy
+    factory: user_proxy
+    config:
+      next: coder
+  - name: coder
+    factory: coder
+    config:
+      reviewer: llm_writer
+  - name: reviewer
+    factory: reviewer
+    config:
+      coder: coder
+  - name: llm_writer
+    factory: tool_invoker
+    config:
+      tool_name: llm.local_echo
+      next: reviewer
+
+tools:
+  - factory: echo
+    config:
+      prefix: "Echo"
+  - factory: llm.local_echo
+    config:
+      system_prompt: "You are a Rust assistant."
+
+flows:
+  - name: code_review
+    start: user_proxy
+    nodes:
+      - name: user_proxy
+        agent: user_proxy
+      - name: coder
+        agent: coder
+      - name: llm_writer
+        agent: llm_writer
+      - name: reviewer
+        agent: reviewer
+      - name: finish
+        terminal: true
+    transitions:
+      - from: user_proxy
+        to: coder
+      - from: coder
+        to: llm_writer
+      - from: llm_writer
+        to: reviewer
+      - from: reviewer
+        to: coder
+        name: reviewer_loop
+        condition:
+          type: equals
+          key: review.status
+          value: needs_fix
+      - from: reviewer
+        to: finish
+        name: reviewer_done
+        condition:
+          type: equals
+          key: review.status
+          value: pass
+
