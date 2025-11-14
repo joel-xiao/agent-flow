@@ -1,14 +1,18 @@
 pub mod builtin;
+pub mod manifest;
 
 use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::error::Result;
-use crate::state::FlowContext;
+pub use manifest::{AgentManifest, AgentManifestBuilder, AgentPort, AgentPortSchema};
+
+use crate::error::{AgentFlowError, Result};
+use crate::state::{FlowContext, FlowScopeGuard, FlowScopeKind, FlowVariables, SessionContext};
 use crate::tools::ToolInvocation;
 
 pub type AgentFactory = Arc<dyn Fn(Option<Value>) -> Result<Arc<dyn Agent>> + Send + Sync>;
@@ -75,6 +79,24 @@ pub struct AgentContext<'a> {
     pub runtime: &'a dyn AgentRuntime,
 }
 
+impl<'a> AgentContext<'a> {
+    pub fn flow(&self) -> &'a FlowContext {
+        self.flow_ctx
+    }
+
+    pub fn session(&self) -> SessionContext {
+        self.flow_ctx.session()
+    }
+
+    pub fn variables(&self) -> FlowVariables {
+        self.flow_ctx.variables()
+    }
+
+    pub fn scope(&self, kind: FlowScopeKind) -> FlowScopeGuard {
+        self.flow_ctx.scope(kind)
+    }
+}
+
 #[async_trait]
 pub trait AgentRuntime: Send + Sync {
     async fn call_tool(&self, name: &str, invocation: ToolInvocation) -> Result<AgentMessage>;
@@ -84,11 +106,17 @@ pub trait AgentRuntime: Send + Sync {
 #[async_trait]
 pub trait Agent: Send + Sync {
     fn name(&self) -> &'static str;
+    async fn on_start(&self, _ctx: &AgentContext<'_>) -> Result<()> {
+        Ok(())
+    }
     async fn on_message(
         &self,
         message: AgentMessage,
         ctx: &AgentContext<'_>,
     ) -> Result<AgentAction>;
+    async fn on_finish(&self, _ctx: &AgentContext<'_>) -> Result<()> {
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -153,5 +181,80 @@ impl AgentFactoryRegistry {
 
     pub fn has_factory(&self, name: &str) -> bool {
         self.factories.contains_key(name)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct AgentInput<T> {
+    pub value: T,
+    pub message: AgentMessage,
+}
+
+impl<T> AgentInput<T>
+where
+    T: DeserializeOwned,
+{
+    pub fn try_from_message(message: AgentMessage) -> Result<Self> {
+        let value = serde_json::from_str(&message.content)
+            .map_err(|e| AgentFlowError::Serialization(e.to_string()))?;
+        Ok(Self { value, message })
+    }
+}
+
+impl AgentMessage {
+    pub fn try_decode<T>(&self) -> Result<T>
+    where
+        T: DeserializeOwned,
+    {
+        serde_json::from_str(&self.content)
+            .map_err(|e| AgentFlowError::Serialization(e.to_string()))
+    }
+
+    pub fn from_serialized<T>(
+        role: MessageRole,
+        from: impl Into<String>,
+        to: Option<String>,
+        value: &T,
+    ) -> Result<Self>
+    where
+        T: Serialize,
+    {
+        let content = serde_json::to_string(value)
+            .map_err(|e| AgentFlowError::Serialization(e.to_string()))?;
+        Ok(Self {
+            id: uuid(),
+            role,
+            from: from.into(),
+            to,
+            content,
+            metadata: None,
+        })
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct AgentOutput<T> {
+    pub role: MessageRole,
+    pub from: String,
+    pub to: Option<String>,
+    pub value: T,
+    pub metadata: Option<Value>,
+}
+
+impl<T> AgentOutput<T>
+where
+    T: Serialize,
+{
+    pub fn into_message(self) -> Result<AgentMessage> {
+        let content = serde_json::to_string(&self.value)
+            .map_err(|e| AgentFlowError::Serialization(e.to_string()))?;
+        Ok(AgentMessage {
+            id: uuid(),
+            role: self.role,
+            from: self.from,
+            to: self.to,
+            content,
+            metadata: self.metadata,
+        })
     }
 }

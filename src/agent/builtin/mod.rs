@@ -107,14 +107,14 @@ impl Agent for ReviewerAgent {
         let store = ctx.flow_ctx.store();
         if needs_fix {
             if let Err(err) = store.set("review.status", "needs_fix".into()).await {
-                warn!(%err, "无法写入 review.status");
+                warn!(%err, "Failed to write review.status");
             }
             let feedback = AgentMessage {
                 id: crate::agent::uuid(),
                 role: MessageRole::Agent,
                 from: self.name().to_string(),
                 to: Some(self.coder.clone()),
-                content: "请添加 println! 调用".into(),
+                content: "Please add println! call".into(),
                 metadata: Some(json!({ "needs_fix": true })),
             };
             Ok(AgentAction::Continue {
@@ -122,10 +122,10 @@ impl Agent for ReviewerAgent {
             })
         } else {
             if let Err(err) = store.set("review.status", "pass".into()).await {
-                warn!(%err, "无法写入 review.status");
+                warn!(%err, "Failed to write review.status");
             }
-            let approval = AgentMessage::system("审核完成");
-            info!("代码通过审核");
+            let approval = AgentMessage::system("Review completed");
+            info!("Code review passed");
             Ok(AgentAction::Continue {
                 message: Some(approval),
             })

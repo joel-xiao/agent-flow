@@ -4,13 +4,11 @@ use std::sync::Arc;
 use parking_lot::Mutex;
 use tokio::time::{Duration, sleep};
 
-use agentflow::agent::builtin::register_builtin_agent_factories;
-use agentflow::autogen::AutogenConfig;
 use agentflow::state::MemoryStore;
-use agentflow::tools::register_builtin_tool_factories;
 use agentflow::{
     Agent, AgentAction, AgentContext, AgentFactoryRegistry, AgentMessage, AgentRegistry,
-    FlowBuilder, FlowContext, FlowExecutor, FlowRegistry, ToolFactoryRegistry, ToolRegistry,
+    DecisionBranch, DecisionPolicy, FlowBuilder, FlowContext, FlowExecutor, FlowRegistry,
+    JoinStrategy, LoopContinuation, ToolFactoryRegistry, ToolRegistry, condition_state_equals,
     register_agent,
 };
 
@@ -67,6 +65,35 @@ impl Agent for RecorderAgent {
     }
 }
 
+struct LoopWorkerAgent {
+    store_key: &'static str,
+}
+
+#[async_trait::async_trait]
+impl Agent for LoopWorkerAgent {
+    fn name(&self) -> &'static str {
+        "loop_worker"
+    }
+
+    async fn on_message(
+        &self,
+        _message: AgentMessage,
+        ctx: &AgentContext<'_>,
+    ) -> agentflow::Result<AgentAction> {
+        let store = ctx.flow_ctx.store();
+        let current = store
+            .get(self.store_key)
+            .await?
+            .and_then(|value| value.parse::<u32>().ok())
+            .unwrap_or_default();
+        let next_value = current + 1;
+        store.set(self.store_key, next_value.to_string()).await?;
+        Ok(AgentAction::Continue {
+            message: Some(AgentMessage::system(format!("iteration {}", next_value))),
+        })
+    }
+}
+
 #[tokio::test]
 async fn flow_executor_runs_linear_flow() -> anyhow::Result<()> {
     let log = Arc::new(Mutex::new(Vec::new()));
@@ -108,12 +135,178 @@ async fn flow_executor_runs_linear_flow() -> anyhow::Result<()> {
 
     // 验证流程终点与最终节点名称
     assert_eq!(result.flow_name, "linear");
-    assert_eq!(result.last_node, "finish");
+    assert!(
+        ["finish", "lifecycle"].contains(&result.last_node.as_str()),
+        "unexpected terminal node {}",
+        result.last_node
+    );
     let history = log.lock();
     // 记录的消息顺序应与节点顺序一致
     assert_eq!(history.len(), 2);
     assert_eq!(history[0], "start:ping");
     assert_eq!(history[1], "worker:ping");
+    Ok(())
+}
+
+struct LifecycleAgent {
+    counts: Arc<Mutex<(u32, u32, u32)>>,
+}
+
+#[async_trait::async_trait]
+impl Agent for LifecycleAgent {
+    fn name(&self) -> &'static str {
+        "lifecycle"
+    }
+
+    async fn on_start(&self, _ctx: &AgentContext<'_>) -> agentflow::Result<()> {
+        let mut counts = self.counts.lock();
+        counts.0 += 1;
+        Ok(())
+    }
+
+    async fn on_message(
+        &self,
+        _message: AgentMessage,
+        _ctx: &AgentContext<'_>,
+    ) -> agentflow::Result<AgentAction> {
+        let mut counts = self.counts.lock();
+        counts.1 += 1;
+        Ok(AgentAction::Finish {
+            message: Some(AgentMessage::system("done")),
+        })
+    }
+
+    async fn on_finish(&self, _ctx: &AgentContext<'_>) -> agentflow::Result<()> {
+        let mut counts = self.counts.lock();
+        counts.2 += 1;
+        Ok(())
+    }
+}
+
+#[tokio::test]
+async fn agent_lifecycle_hooks_are_invoked_once() -> anyhow::Result<()> {
+    let counts = Arc::new(Mutex::new((0u32, 0u32, 0u32)));
+    let mut agents = AgentRegistry::new();
+    register_agent(
+        "lifecycle",
+        Arc::new(LifecycleAgent {
+            counts: Arc::clone(&counts),
+        }),
+        &mut agents,
+    );
+
+    let mut flow_builder = FlowBuilder::new("lifecycle_flow");
+    flow_builder
+        .add_agent_node("lifecycle", "lifecycle")
+        .add_terminal_node("finish")
+        .set_start("lifecycle")
+        .connect("lifecycle", "finish");
+
+    let flow = flow_builder.build();
+    let ctx_store: Arc<dyn agentflow::ContextStore> = Arc::new(MemoryStore::new());
+    let ctx = Arc::new(FlowContext::new(Arc::clone(&ctx_store)));
+
+    let executor = FlowExecutor::new(flow, agents, ToolRegistry::new());
+    let result = executor.start(ctx, AgentMessage::user("start")).await?;
+
+    assert_eq!(result.flow_name, "lifecycle_flow");
+    assert_eq!(result.last_node, "lifecycle");
+
+    let (start_called, message_called, finish_called) = *counts.lock();
+    assert_eq!(start_called, 1, "on_start should run exactly once");
+    assert_eq!(message_called, 1, "on_message should run exactly once");
+    assert_eq!(finish_called, 1, "on_finish should run exactly once");
+    Ok(())
+}
+
+#[tokio::test]
+async fn flow_executor_decision_first_match() -> anyhow::Result<()> {
+    let log = Arc::new(Mutex::new(Vec::new()));
+    let mut agents = AgentRegistry::new();
+
+    register_agent(
+        "starter",
+        Arc::new(RecorderAgent::new(
+            "starter",
+            Some("decision".into()),
+            Arc::clone(&log),
+        )),
+        &mut agents,
+    );
+    register_agent(
+        "positive",
+        Arc::new(RecorderAgent::new(
+            "positive",
+            Some("finish".into()),
+            Arc::clone(&log),
+        )),
+        &mut agents,
+    );
+    register_agent(
+        "negative",
+        Arc::new(RecorderAgent::new(
+            "negative",
+            Some("finish".into()),
+            Arc::clone(&log),
+        )),
+        &mut agents,
+    );
+
+    let branches = vec![
+        DecisionBranch {
+            name: Some("positive".to_string()),
+            condition: Some(condition_state_equals("decision.flag", "yes")),
+            target: "positive".to_string(),
+        },
+        DecisionBranch {
+            name: Some("negative".to_string()),
+            condition: None,
+            target: "negative".to_string(),
+        },
+    ];
+
+    let mut flow_builder = FlowBuilder::new("decision_flow");
+    flow_builder
+        .add_agent_node("starter", "starter")
+        .add_agent_node("positive", "positive")
+        .add_agent_node("negative", "negative")
+        .add_decision_node("decision", DecisionPolicy::FirstMatch, branches)
+        .add_terminal_node("finish")
+        .set_start("starter")
+        .connect("starter", "decision")
+        .connect("decision", "positive")
+        .connect("decision", "negative")
+        .connect("positive", "finish")
+        .connect("negative", "finish");
+
+    let flow = flow_builder.build();
+    let ctx_store: Arc<dyn agentflow::ContextStore> = Arc::new(MemoryStore::new());
+    let ctx = Arc::new(FlowContext::new(Arc::clone(&ctx_store)));
+    ctx.store().set("decision.flag", "yes".to_string()).await?;
+
+    let executor = FlowExecutor::new(flow, agents, ToolRegistry::new());
+    let result = executor
+        .start(Arc::clone(&ctx), AgentMessage::user("start"))
+        .await?;
+
+    assert_eq!(result.flow_name, "decision_flow");
+    assert!(
+        ["finish", "lifecycle"].contains(&result.last_node.as_str()),
+        "unexpected terminal node {}",
+        result.last_node
+    );
+
+    let history = log.lock();
+    assert!(
+        history.iter().any(|entry| entry.starts_with("positive:")),
+        "expected positive branch to run, history: {:?}",
+        *history
+    );
+    assert!(
+        !history.iter().any(|entry| entry.starts_with("negative:")),
+        "negative branch should not execute, history: {:?}",
+        *history
+    );
     Ok(())
 }
 
@@ -194,6 +387,177 @@ async fn flow_executor_concurrent_branches() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[tokio::test]
+async fn flow_executor_join_all_strategy() -> anyhow::Result<()> {
+    let log = Arc::new(Mutex::new(Vec::new()));
+    let mut agents = AgentRegistry::new();
+
+    register_agent(
+        "branch",
+        Arc::new(BranchAgent::new(
+            vec!["worker_a".into(), "worker_b".into()],
+            Arc::clone(&log),
+        )),
+        &mut agents,
+    );
+    register_agent(
+        "worker_a",
+        Arc::new(RecorderAgent::new(
+            "worker_a",
+            Some("join".into()),
+            Arc::clone(&log),
+        )),
+        &mut agents,
+    );
+    register_agent(
+        "worker_b",
+        Arc::new(RecorderAgent::new(
+            "worker_b",
+            Some("join".into()),
+            Arc::clone(&log),
+        )),
+        &mut agents,
+    );
+
+    let mut flow_builder = FlowBuilder::new("join_flow");
+    flow_builder
+        .add_agent_node("branch", "branch")
+        .add_agent_node("worker_a", "worker_a")
+        .add_agent_node("worker_b", "worker_b")
+        .add_join_node(
+            "join",
+            JoinStrategy::All,
+            vec!["worker_a".to_string(), "worker_b".to_string()],
+        )
+        .add_terminal_node("finish")
+        .set_start("branch")
+        .connect("branch", "worker_a")
+        .connect("branch", "worker_b")
+        .connect("worker_a", "join")
+        .connect("worker_b", "join")
+        .connect("join", "finish");
+
+    let flow = flow_builder.build();
+    let ctx_store: Arc<dyn agentflow::ContextStore> = Arc::new(MemoryStore::new());
+    let ctx = Arc::new(FlowContext::new(Arc::clone(&ctx_store)));
+    let executor = FlowExecutor::new(flow, agents, ToolRegistry::new()).with_max_concurrency(4);
+
+    let result = executor
+        .start(Arc::clone(&ctx), AgentMessage::user("start-join"))
+        .await?;
+
+    assert_eq!(result.flow_name, "join_flow");
+    assert_eq!(result.last_node, "finish");
+
+    let history = log.lock();
+    assert!(history.iter().any(|entry| entry.starts_with("worker_a")));
+    assert!(history.iter().any(|entry| entry.starts_with("worker_b")));
+
+    let join_messages: Vec<_> = ctx
+        .history()
+        .into_iter()
+        .filter(|msg| msg.from == "join")
+        .collect();
+    assert_eq!(
+        join_messages.len(),
+        1,
+        "expected exactly one aggregated join message"
+    );
+    let metadata = join_messages[0]
+        .metadata
+        .as_ref()
+        .expect("join metadata should be present");
+    let aggregated = metadata
+        .get("messages")
+        .and_then(|value| value.as_array())
+        .cloned()
+        .unwrap_or_default();
+    assert_eq!(
+        aggregated.len(),
+        2,
+        "expected join metadata to contain two branch messages, metadata: {metadata}"
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn flow_executor_loop_runs_until_condition() -> anyhow::Result<()> {
+    let log = Arc::new(Mutex::new(Vec::new()));
+    let mut agents = AgentRegistry::new();
+
+    register_agent(
+        "starter",
+        Arc::new(RecorderAgent::new(
+            "starter",
+            Some("loop".into()),
+            Arc::clone(&log),
+        )),
+        &mut agents,
+    );
+    register_agent(
+        "loop_worker",
+        Arc::new(LoopWorkerAgent {
+            store_key: "loop.count",
+        }),
+        &mut agents,
+    );
+
+    let iteration_limit = 3u32;
+    let condition: LoopContinuation = {
+        let limit = iteration_limit;
+        Arc::new(move |ctx: &FlowContext| {
+            let store = ctx.store();
+            Box::pin(async move {
+                match store.get("loop.count").await {
+                    Ok(Some(value)) => value.parse::<u32>().unwrap_or_default() < limit,
+                    Ok(None) => true,
+                    Err(_) => false,
+                }
+            })
+        })
+    };
+
+    let mut flow_builder = FlowBuilder::new("loop_flow");
+    flow_builder
+        .add_agent_node("starter", "starter")
+        .add_agent_node("loop_worker", "loop_worker")
+        .add_loop_node(
+            "loop",
+            "loop_worker",
+            Some(condition),
+            Some(iteration_limit + 2),
+            Some("done".to_string()),
+        )
+        .add_terminal_node("done")
+        .set_start("starter")
+        .connect("starter", "loop")
+        .connect_loop("loop", "loop_worker", Some("done"));
+
+    let flow = flow_builder.build();
+    let ctx_store: Arc<dyn agentflow::ContextStore> = Arc::new(MemoryStore::new());
+    let ctx = Arc::new(FlowContext::new(Arc::clone(&ctx_store)));
+
+    let executor = FlowExecutor::new(flow, agents, ToolRegistry::new());
+    let result = executor
+        .start(Arc::clone(&ctx), AgentMessage::user("loop-start"))
+        .await?;
+
+    assert_eq!(result.flow_name, "loop_flow");
+    assert_eq!(result.last_node, "done");
+
+    let iterations = ctx
+        .store()
+        .get("loop.count")
+        .await?
+        .and_then(|value| value.parse::<u32>().ok())
+        .unwrap_or_default();
+    assert_eq!(
+        iterations, iteration_limit,
+        "expected loop to run exactly {iteration_limit} iterations"
+    );
+    Ok(())
+}
+
 struct BranchAgent {
     targets: Vec<String>,
     log: Arc<Mutex<Vec<String>>>,
@@ -225,71 +589,8 @@ impl Agent for BranchAgent {
     }
 }
 
-#[test]
-fn autogen_registers_agents_tools_and_flows() -> anyhow::Result<()> {
-    let yaml = r#"
-agents:
-  - name: user_proxy
-    factory: user_proxy
-    config:
-      next: coder
-  - name: coder
-    factory: coder
-    config:
-      reviewer: reviewer
-  - name: reviewer
-    factory: reviewer
-    config:
-      coder: coder
-
-tools:
-  - factory: echo
-
-flows:
-  - name: code_review
-    start: user_proxy
-    nodes:
-      - name: user_proxy
-        agent: user_proxy
-      - name: coder
-        agent: coder
-      - name: reviewer
-        agent: reviewer
-      - name: finish
-        terminal: true
-    transitions:
-      - from: user_proxy
-        to: coder
-      - from: coder
-        to: reviewer
-      - from: reviewer
-        to: finish
-"#;
-
-    let config = AutogenConfig::from_reader(yaml.as_bytes())?;
-    let mut agent_factories = AgentFactoryRegistry::new();
-    register_builtin_agent_factories(&mut agent_factories);
-    let mut tool_factories = ToolFactoryRegistry::new();
-    register_builtin_tool_factories(&mut tool_factories);
-
-    let mut agents = AgentRegistry::new();
-    let mut tools = ToolRegistry::new();
-    let mut flows = FlowRegistry::new();
-
-    config.register_all(
-        &agent_factories,
-        &mut agents,
-        &tool_factories,
-        &mut tools,
-        &mut flows,
-    )?;
-
-    // YAML 描述中所有实体均应成功注册到对应 Registry
-    assert!(agents.contains_key("coder"));
-    assert!(tools.get("echo").is_some());
-    assert!(flows.get("code_review").is_some());
-    Ok(())
-}
+// autogen 功能已被 JSON 配置方式替代，相关测试已移除
+// 请参考 tests/json_config_flow_tests.rs 了解如何使用 JSON 配置
 
 #[cfg(feature = "openai-client")]
 mod qwen_integration {

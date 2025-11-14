@@ -1,3 +1,7 @@
+pub mod manifest;
+pub mod orchestrator;
+pub mod resources;
+
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -7,8 +11,10 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use tracing::debug;
 
+pub use manifest::{ToolManifest, ToolManifestBuilder, ToolPort, ToolPortSchema};
+
 use crate::agent::{self, AgentMessage, MessageRole};
-use crate::error::Result;
+use crate::error::{AgentFlowError, Result};
 use crate::llm::{DynLlmClient, LlmRequest, LocalEchoClient};
 use crate::state::FlowContext;
 
@@ -36,9 +42,15 @@ pub trait Tool: Send + Sync {
     async fn call(&self, invocation: ToolInvocation, ctx: &FlowContext) -> Result<AgentMessage>;
 }
 
+#[derive(Clone)]
+struct ToolEntry {
+    tool: Arc<dyn Tool>,
+    manifest: Option<Arc<ToolManifest>>,
+}
+
 #[derive(Default)]
 pub struct ToolRegistry {
-    tools: HashMap<String, Arc<dyn Tool>>,
+    tools: HashMap<String, ToolEntry>,
 }
 
 impl ToolRegistry {
@@ -49,11 +61,54 @@ impl ToolRegistry {
     }
 
     pub fn register(&mut self, tool: Arc<dyn Tool>) {
-        self.tools.insert(tool.name().to_string(), tool);
+        let _ = self.insert(tool, None);
+    }
+
+    pub fn register_with_manifest(
+        &mut self,
+        tool: Arc<dyn Tool>,
+        manifest: ToolManifest,
+    ) -> Result<()> {
+        self.insert(tool, Some(manifest))
+    }
+
+    pub fn register_manifest(&mut self, manifest: ToolManifest) -> Result<()> {
+        let entry = self
+            .tools
+            .get_mut(&manifest.name)
+            .ok_or_else(|| AgentFlowError::ToolNotRegistered(manifest.name.clone()))?;
+        entry.manifest = Some(Arc::new(manifest));
+        Ok(())
     }
 
     pub fn get(&self, name: &str) -> Option<Arc<dyn Tool>> {
-        self.tools.get(name).cloned()
+        self.tools.get(name).map(|entry| Arc::clone(&entry.tool))
+    }
+
+    pub fn manifest(&self, name: &str) -> Option<Arc<ToolManifest>> {
+        self.tools
+            .get(name)
+            .and_then(|entry| entry.manifest.as_ref().map(Arc::clone))
+    }
+
+    fn insert(&mut self, tool: Arc<dyn Tool>, manifest: Option<ToolManifest>) -> Result<()> {
+        if let Some(ref manifest) = manifest {
+            if manifest.name != tool.name() {
+                return Err(AgentFlowError::ManifestMismatch {
+                    kind: "tool",
+                    name: tool.name().to_string(),
+                });
+            }
+        }
+
+        self.tools.insert(
+            tool.name().to_string(),
+            ToolEntry {
+                tool,
+                manifest: manifest.map(Arc::new),
+            },
+        );
+        Ok(())
     }
 }
 
@@ -233,6 +288,8 @@ impl Tool for LlmTool {
             user: user_input,
             temperature: self.config.temperature,
             metadata: metadata.clone(),
+            image_url: None,
+            image_base64: None,
         };
         let response = self.client.complete(request).await?;
         let content = response.content.clone();
