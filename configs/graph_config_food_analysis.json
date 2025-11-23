@@ -1,0 +1,477 @@
+{
+  "name": "food_analysis_app",
+  "nodes": [
+    {
+      "id": "service_qwen",
+      "type": "service",
+      "config": {
+        "name": "qwen",
+        "service_type": "llm",
+        "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "api_key": "sk-ede615cd70004d8ab45f8a73b50c42ee"
+      }
+    },
+    {
+      "id": "agent_image_preprocessor",
+      "type": "agent",
+      "config": {
+        "name": "image_preprocessor",
+        "driver": "qwen",
+        "role": "Image Preprocessor",
+        "prompt": "You are an image preprocessing expert. Analyze the image format, size, and quality. Extract image metadata and prepare it for food recognition. Return JSON: {\"image_quality\": \"high\"|\"medium\"|\"low\", \"format\": \"jpeg\"|\"png\"|\"webp\", \"size\": \"large\"|\"medium\"|\"small\", \"metadata\": {...}}",
+        "model": "qwen-vl-max",
+        "api_key": "sk-ede615cd70004d8ab45f8a73b50c42ee",
+        "intent": "preprocess",
+        "service": "service_qwen",
+        "rules": {
+          "field_extraction": {
+            "image_quality": "image_quality",
+            "image_format": "format",
+            "image_size": "size"
+          }
+        }
+      }
+    },
+    {
+      "id": "agent_food_identifier",
+      "type": "agent",
+      "config": {
+        "name": "food_identifier",
+        "driver": "qwen",
+        "role": "Food Identification Expert",
+        "prompt": "You are an experienced food identification expert. Identify all foods in the image. Return JSON: {\"foods\": [{\"name\": \"food_name\", \"confidence\": 0.95, \"bbox\": [x1, y1, x2, y2]}], \"food_count\": 1, \"image_analysis\": \"description\"}",
+        "model": "qwen-vl-max",
+        "api_key": "sk-ede615cd70004d8ab45f8a73b50c42ee",
+        "intent": "identify",
+        "service": "service_qwen",
+        "rules": {
+          "field_extraction": {
+            "foods": "foods",
+            "food_count": "food_count",
+            "image_analysis": "image_analysis"
+          },
+          "payload_building": {
+            "template": "Analyze this food image and identify all foods. Return JSON with 'foods' array, 'food_count' number, and 'image_analysis' text."
+          }
+        }
+      }
+    },
+    {
+      "id": "agent_smart_router",
+      "type": "agent",
+      "config": {
+        "name": "smart_router",
+        "driver": "qwen",
+        "role": "Intelligent Routing Assistant",
+        "prompt": "Analyze the food analysis context and determine the best processing route. Consider image quality, food count, and complexity. Return JSON: {\"route\": \"high_quality\"|\"standard\"|\"complex\", \"reason\": \"routing reason\"}",
+        "model": "qwen-max",
+        "api_key": "sk-ede615cd70004d8ab45f8a73b50c42ee",
+        "intent": "route",
+        "service": "service_qwen",
+        "route_mode": "auto",
+        "route_targets": ["node_high_quality_handler", "node_standard_handler", "node_complex_handler"],
+        "default_route": "node_standard_handler",
+        "route_prompt": "Based on image quality and food complexity, route to: high_quality (for clear single food), standard (for normal cases), or complex (for multiple foods or unclear images)"
+      }
+    },
+    {
+      "id": "agent_portion_analyzer",
+      "type": "agent",
+      "config": {
+        "name": "portion_analyzer",
+        "driver": "qwen",
+        "role": "Portion Estimation Expert",
+        "prompt": "You are a professional portion estimation expert. Analyze food portions in the image. For each food, estimate weight (in grams), volume (in ml), and quantity. Return JSON: {\"portions\": [{\"food\": \"food_name\", \"weight\": 150, \"weight_unit\": \"g\", \"volume\": null, \"volume_unit\": \"ml\", \"quantity\": 1, \"confidence\": 0.9}]}",
+        "model": "qwen-vl-max",
+        "api_key": "sk-ede615cd70004d8ab45f8a73b50c42ee",
+        "intent": "estimate",
+        "service": "service_qwen",
+        "rules": {
+          "field_extraction": {
+            "portions": "portions"
+          }
+        }
+      }
+    },
+    {
+      "id": "agent_calorie_calculator",
+      "type": "agent",
+      "config": {
+        "name": "calorie_calculator",
+        "driver": "qwen",
+        "role": "Nutrition Calculator",
+        "prompt": "You are a nutrition expert. Calculate calories and nutritional information based on food type and portion size. Use standard nutrition databases. Return JSON: {\"total_calories\": 75, \"breakdown\": [{\"food\": \"apple\", \"calories\": 75, \"protein\": 0.5, \"carbs\": 19.5, \"fat\": 0.3, \"fiber\": 2.5}], \"nutrition_summary\": \"summary\"}",
+        "model": "qwen-max",
+        "api_key": "sk-ede615cd70004d8ab45f8a73b50c42ee",
+        "intent": "calculate",
+        "service": "service_qwen",
+        "rules": {
+          "field_extraction": {
+            "total_calories": "total_calories",
+            "breakdown": "breakdown",
+            "nutrition_summary": "nutrition_summary"
+          }
+        }
+      }
+    },
+    {
+      "id": "agent_result_summarizer",
+      "type": "agent",
+      "config": {
+        "name": "result_summarizer",
+        "driver": "qwen",
+        "role": "Report Generator",
+        "prompt": "You are a report generator. Summarize all food analysis results into a clear, structured report. Return JSON: {\"analysis_id\": \"id\", \"timestamp\": \"ISO8601\", \"foods\": [...], \"summary\": {\"total_calories\": 75, \"total_foods\": 1, \"confidence_score\": 0.95}, \"recommendations\": \"health recommendations\"}",
+        "model": "qwen-max",
+        "api_key": "sk-ede615cd70004d8ab45f8a73b50c42ee",
+        "intent": "summarize",
+        "service": "service_qwen"
+      }
+    },
+    {
+      "id": "agent_single_food_processor",
+      "type": "agent",
+      "config": {
+        "name": "single_food_processor",
+        "driver": "qwen",
+        "role": "Single Food Processor",
+        "prompt": "Process single food item with high precision.",
+        "model": "qwen-max",
+        "api_key": "sk-ede615cd70004d8ab45f8a73b50c42ee",
+        "intent": "process_single",
+        "service": "service_qwen"
+      }
+    },
+    {
+      "id": "agent_multi_food_processor",
+      "type": "agent",
+      "config": {
+        "name": "multi_food_processor",
+        "driver": "qwen",
+        "role": "Multi Food Processor",
+        "prompt": "Process multiple food items in parallel.",
+        "model": "qwen-max",
+        "api_key": "sk-ede615cd70004d8ab45f8a73b50c42ee",
+        "intent": "process_multi",
+        "service": "service_qwen"
+      }
+    },
+    {
+      "id": "agent_high_quality_handler",
+      "type": "agent",
+      "config": {
+        "name": "high_quality_handler",
+        "driver": "qwen",
+        "role": "High Quality Image Handler",
+        "prompt": "Handle high quality images with detailed analysis.",
+        "model": "qwen-max",
+        "api_key": "sk-ede615cd70004d8ab45f8a73b50c42ee",
+        "intent": "handle_high_quality",
+        "service": "service_qwen"
+      }
+    },
+    {
+      "id": "agent_standard_handler",
+      "type": "agent",
+      "config": {
+        "name": "standard_handler",
+        "driver": "qwen",
+        "role": "Standard Handler",
+        "prompt": "Handle standard quality images with normal processing.",
+        "model": "qwen-max",
+        "api_key": "sk-ede615cd70004d8ab45f8a73b50c42ee",
+        "intent": "handle_standard",
+        "service": "service_qwen"
+      }
+    },
+    {
+      "id": "agent_complex_handler",
+      "type": "agent",
+      "config": {
+        "name": "complex_handler",
+        "driver": "qwen",
+        "role": "Complex Image Handler",
+        "prompt": "Handle complex images with multiple foods or unclear scenes.",
+        "model": "qwen-max",
+        "api_key": "sk-ede615cd70004d8ab45f8a73b50c42ee",
+        "intent": "handle_complex",
+        "service": "service_qwen"
+      }
+    },
+    {
+      "id": "workflow_food_analysis",
+      "type": "workflow",
+      "config": {
+        "name": "food_analysis_flow",
+        "start": "node_image_preprocessor",
+        "parameters": [
+          {
+            "name": "image_url",
+            "kind": "input",
+            "type_name": "String",
+            "description": "Food image URL"
+          },
+          {
+            "name": "image_base64",
+            "kind": "input",
+            "type_name": "String",
+            "description": "Base64 encoded food image"
+          }
+        ],
+        "variables": [
+          {
+            "name": "analysis_log",
+            "scope": "global"
+          },
+          {
+            "name": "foods",
+            "scope": "global"
+          },
+          {
+            "name": "portions",
+            "scope": "global"
+          },
+          {
+            "name": "calories",
+            "scope": "global"
+          }
+        ]
+      }
+    },
+    {
+      "id": "node_image_preprocessor",
+      "type": "agent_node",
+      "config": {
+        "agent": "agent_image_preprocessor"
+      },
+      "workflow": "workflow_food_analysis"
+    },
+    {
+      "id": "node_food_identifier",
+      "type": "agent_node",
+      "config": {
+        "agent": "agent_food_identifier"
+      },
+      "workflow": "workflow_food_analysis"
+    },
+    {
+      "id": "node_smart_router",
+      "type": "agent_node",
+      "config": {
+        "agent": "agent_smart_router"
+      },
+      "workflow": "workflow_food_analysis"
+    },
+    {
+      "id": "node_decision",
+      "type": "decision_node",
+      "config": {
+        "policy": "first_match",
+        "branches": [
+          {
+            "target": "node_single_food_handler",
+            "name": "single_food",
+            "condition": {
+              "type": "state_equals",
+              "key": "food_count",
+              "value": "1"
+            }
+          },
+          {
+            "target": "node_multi_food_handler",
+            "name": "multi_food",
+            "condition": {
+              "type": "state_not_equals",
+              "key": "food_count",
+              "value": "1"
+            }
+          }
+        ]
+      },
+      "workflow": "workflow_food_analysis"
+    },
+    {
+      "id": "node_high_quality_handler",
+      "type": "agent_node",
+      "config": {
+        "agent": "agent_high_quality_handler"
+      },
+      "workflow": "workflow_food_analysis"
+    },
+    {
+      "id": "node_standard_handler",
+      "type": "agent_node",
+      "config": {
+        "agent": "agent_standard_handler"
+      },
+      "workflow": "workflow_food_analysis"
+    },
+    {
+      "id": "node_complex_handler",
+      "type": "agent_node",
+      "config": {
+        "agent": "agent_complex_handler"
+      },
+      "workflow": "workflow_food_analysis"
+    },
+    {
+      "id": "node_single_food_handler",
+      "type": "agent_node",
+      "config": {
+        "agent": "agent_single_food_processor"
+      },
+      "workflow": "workflow_food_analysis"
+    },
+    {
+      "id": "node_multi_food_handler",
+      "type": "agent_node",
+      "config": {
+        "agent": "agent_multi_food_processor"
+      },
+      "workflow": "workflow_food_analysis"
+    },
+    {
+      "id": "node_join",
+      "type": "join_node",
+      "config": {
+        "strategy": "any",
+        "inbound": ["node_single_food_handler", "node_multi_food_handler"]
+      },
+      "workflow": "workflow_food_analysis"
+    },
+    {
+      "id": "node_portion_analyzer",
+      "type": "agent_node",
+      "config": {
+        "agent": "agent_portion_analyzer"
+      },
+      "workflow": "workflow_food_analysis"
+    },
+    {
+      "id": "node_calorie_calculator",
+      "type": "agent_node",
+      "config": {
+        "agent": "agent_calorie_calculator"
+      },
+      "workflow": "workflow_food_analysis"
+    },
+    {
+      "id": "node_result_summarizer",
+      "type": "agent_node",
+      "config": {
+        "agent": "agent_result_summarizer"
+      },
+      "workflow": "workflow_food_analysis"
+    },
+    {
+      "id": "node_finish",
+      "type": "terminal_node",
+      "config": {},
+      "workflow": "workflow_food_analysis"
+    }
+  ],
+  "edges": [
+    {
+      "from": "node_image_preprocessor",
+      "to": "node_food_identifier",
+      "type": "always",
+      "name": "preprocess_to_identify",
+      "workflow": "workflow_food_analysis"
+    },
+    {
+      "from": "node_food_identifier",
+      "to": "node_smart_router",
+      "type": "always",
+      "name": "identify_to_router",
+      "workflow": "workflow_food_analysis"
+    },
+    {
+      "from": "node_high_quality_handler",
+      "to": "node_decision",
+      "type": "always",
+      "name": "high_quality_to_decision",
+      "workflow": "workflow_food_analysis"
+    },
+    {
+      "from": "node_standard_handler",
+      "to": "node_decision",
+      "type": "always",
+      "name": "standard_to_decision",
+      "workflow": "workflow_food_analysis"
+    },
+    {
+      "from": "node_complex_handler",
+      "to": "node_decision",
+      "type": "always",
+      "name": "complex_to_decision",
+      "workflow": "workflow_food_analysis"
+    },
+    {
+      "from": "node_decision",
+      "to": "node_single_food_handler",
+      "type": "conditional",
+      "name": "decision_to_single",
+      "condition": {
+        "type": "state_equals",
+        "key": "food_count",
+        "value": "1"
+      },
+      "workflow": "workflow_food_analysis"
+    },
+    {
+      "from": "node_decision",
+      "to": "node_multi_food_handler",
+      "type": "conditional",
+      "name": "decision_to_multi",
+      "condition": {
+        "type": "state_not_equals",
+        "key": "food_count",
+        "value": "1"
+      },
+      "workflow": "workflow_food_analysis"
+    },
+    {
+      "from": "node_single_food_handler",
+      "to": "node_join",
+      "type": "always",
+      "name": "single_to_join",
+      "workflow": "workflow_food_analysis"
+    },
+    {
+      "from": "node_multi_food_handler",
+      "to": "node_join",
+      "type": "always",
+      "name": "multi_to_join",
+      "workflow": "workflow_food_analysis"
+    },
+    {
+      "from": "node_join",
+      "to": "node_portion_analyzer",
+      "type": "always",
+      "name": "join_to_portion",
+      "workflow": "workflow_food_analysis"
+    },
+    {
+      "from": "node_portion_analyzer",
+      "to": "node_calorie_calculator",
+      "type": "always",
+      "name": "portion_to_calorie",
+      "workflow": "workflow_food_analysis"
+    },
+    {
+      "from": "node_calorie_calculator",
+      "to": "node_result_summarizer",
+      "type": "always",
+      "name": "calorie_to_summarize",
+      "workflow": "workflow_food_analysis"
+    },
+    {
+      "from": "node_result_summarizer",
+      "to": "node_finish",
+      "type": "always",
+      "name": "summarize_to_finish",
+      "workflow": "workflow_food_analysis"
+    }
+  ]
+}
+
