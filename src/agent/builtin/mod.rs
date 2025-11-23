@@ -65,7 +65,7 @@ impl Agent for CoderAgent {
     ) -> Result<AgentAction> {
         let code = format!("fn main() {{ println!(\"{}\"); }}", message.content);
         let reply = AgentMessage {
-            id: crate::agent::uuid(),
+            id: crate::agent::message::uuid(),
             role: MessageRole::Agent,
             from: self.name().to_string(),
             to: Some(self.reviewer.clone()),
@@ -110,7 +110,7 @@ impl Agent for ReviewerAgent {
                 warn!(%err, "Failed to write review.status");
             }
             let feedback = AgentMessage {
-                id: crate::agent::uuid(),
+                id: crate::agent::message::uuid(),
                 role: MessageRole::Agent,
                 from: self.name().to_string(),
                 to: Some(self.coder.clone()),
