@@ -1,0 +1,163 @@
+{
+  "name": "agentflow_auto_routing_config",
+  "nodes": [
+    {
+      "id": "service_qwen",
+      "type": "service",
+      "config": {
+        "name": "qwen",
+        "service_type": "llm",
+        "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "api_key": "${QWEN_API_KEY}"
+      }
+    },
+    {
+      "id": "agent_smart_router",
+      "type": "agent",
+      "config": {
+        "name": "smart_router",
+        "driver": "qwen",
+        "role": "Intelligent Routing Assistant",
+        "prompt": "You are an intelligent routing assistant. Your task is to analyze the user request and determine the best route for handling it.",
+        "model": "qwen-max",
+        "api_key": "${QWEN_API_KEY}",
+        "intent": "route",
+        "service": "service_qwen",
+        "route_mode": "auto",
+        "route_targets": ["node_urgent_handler", "node_normal_handler", "node_vip_handler"],
+        "default_route": "node_normal_handler",
+        "route_prompt": "Analyze the request urgency, user type, and content. Respond with JSON format: {\"route\": \"urgent\" or \"normal\" or \"vip\", \"response\": \"your analysis\", \"reason\": \"routing reason\"}. Available routes: urgent (for urgent requests), normal (for standard requests), vip (for VIP customers)."
+      }
+    },
+    {
+      "id": "agent_urgent_handler",
+      "type": "agent",
+      "config": {
+        "name": "urgent_handler",
+        "driver": "qwen",
+        "role": "Urgent Request Handler",
+        "prompt": "You handle urgent requests that require immediate attention. Provide quick and effective solutions.",
+        "model": "qwen-max",
+        "api_key": "${QWEN_API_KEY}",
+        "intent": "handle_urgent",
+        "service": "service_qwen"
+      }
+    },
+    {
+      "id": "agent_normal_handler",
+      "type": "agent",
+      "config": {
+        "name": "normal_handler",
+        "driver": "qwen",
+        "role": "Standard Request Handler",
+        "prompt": "You handle standard requests with normal priority. Provide thorough and detailed responses.",
+        "model": "qwen-max",
+        "api_key": "${QWEN_API_KEY}",
+        "intent": "handle_normal",
+        "service": "service_qwen"
+      }
+    },
+    {
+      "id": "agent_vip_handler",
+      "type": "agent",
+      "config": {
+        "name": "vip_handler",
+        "driver": "qwen",
+        "role": "VIP Request Handler",
+        "prompt": "You handle VIP customer requests with premium service. Provide personalized and high-quality responses.",
+        "model": "qwen-max",
+        "api_key": "${QWEN_API_KEY}",
+        "intent": "handle_vip",
+        "service": "service_qwen"
+      }
+    },
+    {
+      "id": "node_router",
+      "type": "agent_node",
+      "config": {
+        "agent": "agent_smart_router"
+      },
+      "workflow": "workflow_auto_routing"
+    },
+    {
+      "id": "node_urgent_handler",
+      "type": "agent_node",
+      "config": {
+        "agent": "agent_urgent_handler"
+      },
+      "workflow": "workflow_auto_routing"
+    },
+    {
+      "id": "node_normal_handler",
+      "type": "agent_node",
+      "config": {
+        "agent": "agent_normal_handler"
+      },
+      "workflow": "workflow_auto_routing"
+    },
+    {
+      "id": "node_vip_handler",
+      "type": "agent_node",
+      "config": {
+        "agent": "agent_vip_handler"
+      },
+      "workflow": "workflow_auto_routing"
+    },
+    {
+      "id": "node_join",
+      "type": "join_node",
+      "config": {
+        "strategy": "any",
+        "inbound": ["node_urgent_handler", "node_normal_handler", "node_vip_handler"]
+      },
+      "workflow": "workflow_auto_routing"
+    },
+    {
+      "id": "workflow_auto_routing",
+      "type": "workflow",
+      "config": {
+        "name": "auto_routing_flow",
+        "start": "node_router"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "node_router",
+      "to": "node_urgent_handler",
+      "type": "always",
+      "workflow": "workflow_auto_routing"
+    },
+    {
+      "from": "node_router",
+      "to": "node_normal_handler",
+      "type": "always",
+      "workflow": "workflow_auto_routing"
+    },
+    {
+      "from": "node_router",
+      "to": "node_vip_handler",
+      "type": "always",
+      "workflow": "workflow_auto_routing"
+    },
+    {
+      "from": "node_urgent_handler",
+      "to": "node_join",
+      "type": "always",
+      "workflow": "workflow_auto_routing"
+    },
+    {
+      "from": "node_normal_handler",
+      "to": "node_join",
+      "type": "always",
+      "workflow": "workflow_auto_routing"
+    },
+    {
+      "from": "node_vip_handler",
+      "to": "node_join",
+      "type": "always",
+      "workflow": "workflow_auto_routing"
+    }
+  ]
+}
+
