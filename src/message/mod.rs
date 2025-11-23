@@ -46,7 +46,7 @@ where
         let content = serde_json::to_string(&self.payload)
             .map_err(|err| AgentFlowError::Serialization(err.to_string()))?;
         Ok(AgentMessage {
-            id: crate::agent::uuid(),
+            id: crate::agent::message::uuid(),
             role,
             from: from.into(),
             to,

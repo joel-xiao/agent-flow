@@ -1,5 +1,6 @@
 pub mod agent;
 pub mod cli;
+pub mod config;
 pub mod error;
 pub mod flow;
 pub mod llm;
@@ -18,9 +19,10 @@ pub use agent::{
 pub use cli::{SchemaExportEntry, load_plugin_manifests, schema_exports};
 pub use error::{AgentFlowError, Result};
 pub use flow::loader::{
-    GraphFlow, WorkflowBundle, build_flow_from_graph, load_workflow_from_str,
+    WorkflowBundle, build_flow_from_graph, load_workflow_from_str,
     load_workflow_from_value,
 };
+pub use flow::config::GraphFlow;
 pub use flow::{
     DecisionBranch, DecisionNode, DecisionPolicy, Flow, FlowBuilder, FlowNode, FlowNodeKind,
     FlowParameter, FlowParameterKind, FlowRegistry, FlowVariable, JoinNode, JoinStrategy,
@@ -31,7 +33,7 @@ pub use flow::{
 pub use llm::{DynLlmClient, LlmClient, LlmRequest, LlmResponse, LocalEchoClient};
 
 #[cfg(feature = "openai-client")]
-pub use llm::QwenClient;
+pub use llm::{GenericHttpClient, ApiFormat};
 pub use message::StructuredMessage;
 pub use plugin::{PluginKind, PluginManifest, PluginRegistry};
 pub use runtime::{FlowExecution, FlowExecutor};
@@ -43,4 +45,9 @@ pub use tools::{
     Tool, ToolFactoryRegistry, ToolInvocation, ToolManifest, ToolManifestBuilder, ToolPort,
     ToolPortSchema, ToolRegistry,
     orchestrator::{ToolOrchestrator, ToolPipeline, ToolStep, ToolStrategy},
+};
+pub use config::{
+    GraphConfig, GraphNode, GraphEdge, Condition,
+    ServiceConfig, AgentConfig, AgentNodeConfig, DecisionNodeConfig, 
+    DecisionBranchConfig, JoinNodeConfig, LoopNodeConfig, WorkflowConfig,
 };
