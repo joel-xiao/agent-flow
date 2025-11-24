@@ -1,18 +1,16 @@
+use anyhow::anyhow;
+use std::io::{self, Write};
 use std::sync::Arc;
 use tokio::sync::mpsc;
-use anyhow::anyhow;
 use tracing::warn;
-use std::io::{self, Write};
 
-use crate::agent::{AgentAction, AgentContext, AgentMessage, MessageRole};
+use super::state::{make_join_message, SharedState};
+use super::types::{FlowEvent, TaskFinished, TaskResult};
+use crate::agent::{AgentAction, AgentMessage, MessageRole};
 use crate::error::{AgentFlowError, Result};
-use crate::flow::{
-    DecisionNode, Flow, FlowNodeKind, JoinNode, LoopNode, ToolNode,
-};
+use crate::flow::{DecisionNode, Flow, JoinNode, LoopNode, ToolNode};
 use crate::state::FlowContext;
-use crate::tools::{ToolRegistry, orchestrator::ToolOrchestrator};
-use super::types::{FlowEvent, TaskResult, TaskFinished};
-use super::state::{SharedState, make_join_message};
+use crate::tools::{orchestrator::ToolOrchestrator, ToolRegistry};
 
 /// 处理 Agent Action
 pub async fn handle_action(
@@ -39,7 +37,10 @@ pub async fn handle_action(
             let debug_mode = std::env::var("AGENTFLOW_DEBUG").is_ok();
             if debug_mode {
                 use std::io::{self, Write};
-                eprintln!("  🌿 Agent 返回 Branch action，路由到 {} 个目标节点", branches.len());
+                eprintln!(
+                    "  🌿 Agent 返回 Branch action，路由到 {} 个目标节点",
+                    branches.len()
+                );
                 for (target, _) in &branches {
                     if flow.node(target).is_some() {
                         eprintln!("    ➡️  路由到节点: {}", target);
@@ -85,7 +86,13 @@ pub async fn handle_action(
                 ctx: Arc::clone(ctx),
                 tools: Arc::clone(tools),
             };
-            let tool_message = <super::runtime::ExecutorRuntime as crate::agent::AgentRuntime>::call_tool(&runtime_handle, &tool, invocation).await?;
+            let tool_message =
+                <super::runtime::ExecutorRuntime as crate::agent::AgentRuntime>::call_tool(
+                    &runtime_handle,
+                    &tool,
+                    invocation,
+                )
+                .await?;
             ctx.push_message(tool_message.clone());
 
             if let Some(target) = on_complete {
@@ -131,7 +138,11 @@ pub async fn handle_action(
 
             if debug_mode {
                 use std::io::{self, Write};
-                eprintln!("  ➡️  节点 {} 有 {} 个后续节点", event.node, transitions.len());
+                eprintln!(
+                    "  ➡️  节点 {} 有 {} 个后续节点",
+                    event.node,
+                    transitions.len()
+                );
                 for (target, _) in &transitions {
                     eprintln!("    → 路由到: {}", target);
                 }
@@ -175,7 +186,11 @@ pub async fn handle_decision_node(
         let passes = if let Some(condition) = &branch.condition {
             let result = (condition)(ctx).await;
             if debug_mode {
-                eprintln!("    🔍 检查分支条件: {:?} - {}", branch.name, if result { "✅" } else { "❌" });
+                eprintln!(
+                    "    🔍 检查分支条件: {:?} - {}",
+                    branch.name,
+                    if result { "✅" } else { "❌" }
+                );
                 io::stderr().flush().ok();
             }
             result
@@ -201,7 +216,10 @@ pub async fn handle_decision_node(
     if debug_mode {
         eprintln!("  ✅ Decision 节点匹配到 {} 个分支", matched.len());
         for branch in &matched {
-            eprintln!("    ➡️  路由到: {} (分支: {:?})", branch.target, branch.name);
+            eprintln!(
+                "    ➡️  路由到: {} (分支: {:?})",
+                branch.target, branch.name
+            );
         }
         io::stderr().flush().ok();
     }
@@ -248,30 +266,34 @@ pub async fn handle_join_node(
 ) -> Result<TaskResult> {
     let debug_mode = std::env::var("AGENTFLOW_DEBUG").is_ok();
     let key = format!("{}::{}", event.trace_id, node_name);
-    
+
     if debug_mode {
         use std::io::{self, Write};
-        eprintln!("  🔗 Join 节点: {} 收到消息 (来源: {})", node_name, event.source);
+        eprintln!(
+            "  🔗 Join 节点: {} 收到消息 (来源: {})",
+            node_name, event.source
+        );
         io::stderr().flush().ok();
     }
-    
+
     let mut states = shared.join_states.lock().await;
-    let state = states
-        .entry(key.clone())
-        .or_insert_with(|| {
-            if debug_mode {
-                use std::io::{self, Write};
-                eprintln!("    📋 初始化 Join 状态，等待 {} 个节点", join.inbound.len());
-                for inbound in &join.inbound {
-                    eprintln!("      - {}", inbound);
-                }
-                io::stderr().flush().ok();
+    let state = states.entry(key.clone()).or_insert_with(|| {
+        if debug_mode {
+            use std::io::{self, Write};
+            eprintln!(
+                "    📋 初始化 Join 状态，等待 {} 个节点",
+                join.inbound.len()
+            );
+            for inbound in &join.inbound {
+                eprintln!("      - {}", inbound);
             }
-            crate::runtime::state::JoinState::new(join.clone())
-        });
-    
+            io::stderr().flush().ok();
+        }
+        crate::runtime::state::JoinState::new(join.clone())
+    });
+
     let source_node = event.source.clone();
-    
+
     if !state.expected.is_empty() && !state.expected.contains(&source_node) {
         if debug_mode {
             use std::io::{self, Write};
@@ -281,7 +303,7 @@ pub async fn handle_join_node(
         drop(states);
         return Ok(TaskResult::Continue);
     }
-    
+
     if debug_mode {
         use std::io::{self, Write};
         eprintln!("    ✅ 来源节点 {} 匹配，记录消息", source_node);
@@ -400,8 +422,10 @@ pub async fn handle_tool_node(
     let orchestrator = tool_orchestrator
         .ok_or_else(|| AgentFlowError::Other(anyhow!("tool orchestrator not configured")))?;
 
+    let params = tool_node.params.clone().unwrap_or_else(|| serde_json::json!({}));
+
     let message = orchestrator
-        .execute_pipeline(&tool_node.pipeline, ctx)
+        .execute_pipeline_with_params(&tool_node.pipeline, params, ctx)
         .await?;
 
     ctx.push_message(message.clone());
@@ -485,4 +509,3 @@ async fn next_from_flow(
     }
     Ok(results)
 }
-

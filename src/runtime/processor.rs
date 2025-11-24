@@ -1,17 +1,17 @@
+use std::io::{self, Write};
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use tracing::debug;
-use std::io::{self, Write};
 
-use crate::agent::{AgentAction, AgentContext, AgentRegistry, MessageRole};
+use super::handlers;
+use super::runtime::ExecutorRuntime;
+use super::state::SharedState;
+use super::types::{FlowEvent, TaskFinished, TaskResult};
+use crate::agent::{AgentAction, AgentContext, AgentRegistry};
 use crate::error::{AgentFlowError, Result};
 use crate::flow::{Flow, FlowNodeKind};
 use crate::state::FlowContext;
-use crate::tools::{ToolRegistry, orchestrator::ToolOrchestrator};
-use super::types::{FlowEvent, TaskResult, TaskFinished};
-use super::state::SharedState;
-use super::handlers;
-use super::runtime::ExecutorRuntime;
+use crate::tools::{orchestrator::ToolOrchestrator, ToolRegistry};
 
 /// 处理单个事件
 pub async fn process_event(
@@ -35,7 +35,6 @@ pub async fn process_event(
         .node(&event.node)
         .ok_or_else(|| AgentFlowError::UnknownNode(event.node.clone()))?;
 
-    // 只在调试模式输出节点执行信息
     let debug_mode = std::env::var("AGENTFLOW_DEBUG").is_ok();
     if debug_mode {
         eprintln!("▶️  正在执行节点: {} ({})", node.name, event.node);
@@ -56,7 +55,10 @@ pub async fn process_event(
         }
         FlowNodeKind::Agent(agent_name) => {
             if debug_mode {
-                eprintln!("🤖 开始执行 Agent 节点: {} (agent: {})", node.name, agent_name);
+                eprintln!(
+                    "🤖 开始执行 Agent 节点: {} (agent: {})",
+                    node.name, agent_name
+                );
                 std::io::stderr().flush().ok();
             }
             let agent = agents
@@ -119,4 +121,3 @@ pub async fn process_event(
         }
     }
 }
-

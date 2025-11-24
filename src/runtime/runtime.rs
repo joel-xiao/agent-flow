@@ -1,11 +1,10 @@
-use std::sync::Arc;
 use async_trait::async_trait;
+use std::sync::Arc;
 
 use crate::agent::AgentMessage;
 use crate::error::Result;
 use crate::state::FlowContext;
-use crate::tools::{ToolRegistry, ToolInvocation};
-use super::types::FlowExecution;
+use crate::tools::{ToolInvocation, ToolRegistry};
 
 /// Executor 运行时实现
 pub struct ExecutorRuntime {
@@ -15,11 +14,7 @@ pub struct ExecutorRuntime {
 
 #[async_trait]
 impl crate::agent::AgentRuntime for ExecutorRuntime {
-    async fn call_tool(
-        &self,
-        name: &str,
-        invocation: ToolInvocation,
-    ) -> Result<AgentMessage> {
+    async fn call_tool(&self, name: &str, invocation: ToolInvocation) -> Result<AgentMessage> {
         let tool = self
             .tools
             .get(name)
@@ -33,4 +28,3 @@ impl crate::agent::AgentRuntime for ExecutorRuntime {
         Ok(())
     }
 }
-

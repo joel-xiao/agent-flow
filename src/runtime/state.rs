@@ -1,8 +1,7 @@
-use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
-use tokio::sync::Mutex;
-use crate::agent::{AgentMessage, MessageRole};
+use crate::agent::AgentMessage;
 use crate::flow::{JoinNode, JoinStrategy};
+use std::collections::{HashMap, HashSet};
+use tokio::sync::Mutex;
 
 /// 运行时状态管理
 
@@ -84,7 +83,10 @@ pub struct LoopState {
 }
 
 /// 创建 Join 消息
-pub fn make_join_message(node_name: &str, messages: &HashMap<String, AgentMessage>) -> AgentMessage {
+pub fn make_join_message(
+    node_name: &str,
+    messages: &HashMap<String, AgentMessage>,
+) -> AgentMessage {
     let aggregated: Vec<_> = messages
         .iter()
         .map(|(source, message)| {
@@ -112,4 +114,3 @@ pub fn make_join_message(node_name: &str, messages: &HashMap<String, AgentMessag
         metadata: Some(payload),
     }
 }
-

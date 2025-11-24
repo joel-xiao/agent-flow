@@ -1,18 +1,17 @@
-use std::sync::Arc;
 use anyhow::anyhow;
+use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::task::JoinSet;
-use tracing::warn;
 
 use crate::agent::{AgentMessage, AgentRegistry};
 use crate::error::{AgentFlowError, Result};
 use crate::flow::Flow;
-use crate::tools::{ToolRegistry, orchestrator::ToolOrchestrator};
 use crate::state::FlowContext;
+use crate::tools::{orchestrator::ToolOrchestrator, ToolRegistry};
 
-use super::types::{FlowEvent, FlowExecution, TaskResult, TaskFinished};
-use super::state::SharedState;
 use super::processor::process_event;
+use super::state::SharedState;
+use super::types::{FlowEvent, FlowExecution, TaskResult};
 
 /// Flow 执行器
 #[derive(Clone)]
@@ -57,7 +56,6 @@ impl FlowExecutor {
         ctx: Arc<FlowContext>,
         initial: AgentMessage,
     ) -> Result<FlowExecution> {
-        // 只在启用调试模式时输出详细信息
         let debug_mode = std::env::var("AGENTFLOW_DEBUG").is_ok();
         if debug_mode {
             use std::io::{self, Write};
@@ -66,9 +64,9 @@ impl FlowExecutor {
             eprintln!("   起始节点: {}", self.flow.start);
             io::stderr().flush().ok();
         }
-        
+
         let (tx, mut rx) = mpsc::unbounded_channel();
-        
+
         let start_node = self.flow.start.clone();
         tx.send(FlowEvent {
             node: start_node.clone(),
@@ -192,4 +190,3 @@ impl FlowExecutor {
         finished.ok_or_else(|| AgentFlowError::Other(anyhow!("flow finished without result")))
     }
 }
-
