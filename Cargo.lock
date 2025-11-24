@@ -18,6 +18,7 @@ dependencies = [
  "clap",
  "futures",
  "image",
+ "once_cell",
  "parking_lot",
  "redis",
  "reqwest",

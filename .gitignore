@@ -1,1 +1,37 @@
-/target
+# Rust
+/target/
+**/*.rs.bk
+*.pdb
+Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 环境变量和敏感信息
+.env
+.env.local
+*.key
+*.pem
+
+# 临时文件
+*.tmp
+*.temp
+*.log
+
+# 测试文件
+test_*.jpg
+test_*.png
+!tests/test_food.jpg
+
+# 构建产物
+*.so
+*.dylib
+*.dll
