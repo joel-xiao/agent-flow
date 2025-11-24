@@ -106,12 +106,22 @@ impl ToolOrchestrator {
     }
 
     pub async fn execute_pipeline(&self, name: &str, ctx: &FlowContext) -> Result<AgentMessage> {
+        self.execute_pipeline_with_params(name, serde_json::json!({}), ctx).await
+    }
+
+    pub async fn execute_pipeline_with_params(
+        &self,
+        name: &str,
+        params: Value,
+        ctx: &FlowContext,
+    ) -> Result<AgentMessage> {
         let pipeline = self
             .pipelines
             .get(name)
             .ok_or_else(|| AgentFlowError::ToolNotRegistered(name.to_string()))?;
-        info!(pipeline = %pipeline.name, "executing tool pipeline");
-        let message = self.execute_strategy(&pipeline.strategy, ctx).await?;
+        info!(pipeline = %pipeline.name, "executing tool pipeline with params");
+        
+        let message = self.execute_strategy_with_params(&pipeline.strategy, params, ctx).await?;
 
         if let Some(manifest) = &pipeline.output_manifest {
             self.validate_output(manifest, &message)?;
@@ -125,11 +135,31 @@ impl ToolOrchestrator {
         strategy: &ToolStrategy,
         ctx: &FlowContext,
     ) -> Result<AgentMessage> {
+        self.execute_strategy_with_params(strategy, serde_json::json!({}), ctx).await
+    }
+
+    pub async fn execute_strategy_with_params(
+        &self,
+        strategy: &ToolStrategy,
+        params: Value,
+        ctx: &FlowContext,
+    ) -> Result<AgentMessage> {
         match strategy {
             ToolStrategy::Sequential(steps) => {
                 let mut last_message = AgentMessage::system("tool.pipeline.start");
                 for step in steps {
-                    last_message = self.execute_step(step, ctx).await?;
+                    let mut merged_input = step.input.clone();
+                    if let Some(obj) = merged_input.as_object_mut() {
+                        if let Some(params_obj) = params.as_object() {
+                            for (k, v) in params_obj {
+                                obj.entry(k.clone()).or_insert(v.clone());
+                            }
+                        }
+                    }
+                    
+                    let mut merged_step = step.clone();
+                    merged_step.input = merged_input;
+                    last_message = self.execute_step(&merged_step, ctx).await?;
                 }
                 Ok(last_message)
             }
@@ -155,8 +185,7 @@ impl ToolOrchestrator {
                         }
                     }
                 }
-                Err(last_error
-                    .unwrap_or_else(|| AgentFlowError::Other(anyhow!("fallback pipeline failed"))))
+                Err(last_error.ok_or_else(|| AgentFlowError::Other(anyhow!("All fallback steps failed")))?)
             }
         }
     }

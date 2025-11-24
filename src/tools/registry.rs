@@ -1,9 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::agent::AgentMessage;
 use crate::error::{AgentFlowError, Result};
-use crate::state::FlowContext;
 use crate::tools::manifest::ToolManifest;
 use crate::tools::tool::Tool;
 
@@ -13,7 +11,7 @@ struct ToolEntry {
     manifest: Option<Arc<ToolManifest>>,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct ToolRegistry {
     tools: HashMap<String, ToolEntry>,
 }
@@ -76,4 +74,3 @@ impl ToolRegistry {
         Ok(())
     }
 }
-

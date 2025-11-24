@@ -1,8 +1,7 @@
-use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use crate::agent::{self, AgentMessage, MessageRole};
+use crate::agent::{AgentMessage, MessageRole};
 use crate::error::Result;
 use crate::state::FlowContext;
 use crate::tools::tool::{Tool, ToolInvocation};
@@ -31,4 +30,3 @@ impl Tool for EchoTool {
         })
     }
 }
-

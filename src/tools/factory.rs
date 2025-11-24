@@ -59,6 +59,7 @@ pub fn register_builtin_tool_factories(registry: &mut ToolFactoryRegistry) {
             }) as Arc<dyn Tool>)
         }),
     );
+    
     registry.register_factory(
         "llm.local_echo",
         Arc::new(|config| {
@@ -84,6 +85,20 @@ pub fn register_builtin_tool_factories(registry: &mut ToolFactoryRegistry) {
             )) as Arc<dyn Tool>)
         }),
     );
+    
+    registry.register_factory(
+        "downloader",
+        Arc::new(|_config| {
+            Ok(Arc::new(crate::tools::DownloaderTool::new()) as Arc<dyn Tool>)
+        }),
+    );
+    
+    registry.register_factory(
+        "image_generator",
+        Arc::new(|_config| {
+            Ok(Arc::new(crate::tools::ImageGeneratorTool::new()) as Arc<dyn Tool>)
+        }),
+    );
 }
 
 struct EchoToolWithPrefix {
@@ -96,7 +111,11 @@ impl Tool for EchoToolWithPrefix {
         "echo"
     }
 
-    async fn call(&self, invocation: ToolInvocation, _ctx: &FlowContext) -> Result<crate::agent::AgentMessage> {
+    async fn call(
+        &self,
+        invocation: ToolInvocation,
+        _ctx: &FlowContext,
+    ) -> Result<crate::agent::AgentMessage> {
         Ok(crate::agent::AgentMessage {
             id: crate::agent::message::uuid(),
             role: crate::agent::MessageRole::Tool,
@@ -153,7 +172,11 @@ impl Tool for LlmTool {
         self.name
     }
 
-    async fn call(&self, invocation: ToolInvocation, ctx: &FlowContext) -> Result<crate::agent::AgentMessage> {
+    async fn call(
+        &self,
+        invocation: ToolInvocation,
+        ctx: &FlowContext,
+    ) -> Result<crate::agent::AgentMessage> {
         use tracing::debug;
         let user_input = Self::extract_user_input(&invocation.input);
         let metadata = invocation.metadata.clone();
@@ -181,4 +204,3 @@ impl Tool for LlmTool {
         })
     }
 }
-

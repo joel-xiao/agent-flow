@@ -29,4 +29,3 @@ pub trait Tool: Send + Sync {
     fn name(&self) -> &'static str;
     async fn call(&self, invocation: ToolInvocation, ctx: &FlowContext) -> Result<AgentMessage>;
 }
-
