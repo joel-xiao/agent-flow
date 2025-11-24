@@ -1,5 +1,5 @@
+use crate::flow::conditions::{LoopContinuation, TransitionCondition};
 use serde_json::Value;
-use crate::flow::conditions::{TransitionCondition, LoopContinuation};
 
 /// Flow 节点类型定义
 
@@ -72,6 +72,7 @@ pub struct LoopNode {
 #[derive(Clone, Debug)]
 pub struct ToolNode {
     pub pipeline: String,
+    pub params: Option<serde_json::Value>,
 }
 
 use std::fmt;
@@ -105,4 +106,3 @@ impl fmt::Debug for LoopNode {
             .finish()
     }
 }
-

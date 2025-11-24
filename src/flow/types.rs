@@ -1,6 +1,5 @@
-use std::collections::HashMap;
-use serde_json::Value;
 use crate::state::FlowScopeKind;
+use std::collections::HashMap;
 
 /// Flow 核心类型定义
 
@@ -131,4 +130,3 @@ impl FlowVariable {
 }
 
 // FlowNode 在 nodes 模块中定义
-

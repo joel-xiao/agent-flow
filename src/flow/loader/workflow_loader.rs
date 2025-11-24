@@ -1,15 +1,13 @@
-use std::sync::Arc;
 use serde_json::Value;
+use std::sync::Arc;
 
-use crate::agent::{AgentRegistry, register_agent};
+use crate::agent::{register_agent, AgentRegistry};
 use crate::error::{AgentFlowError, Result};
-use crate::flow::{
-    DecisionBranch, DecisionPolicy, Flow, FlowBuilder, JoinStrategy,
-};
+use crate::flow::{DecisionBranch, DecisionPolicy, Flow, FlowBuilder, JoinStrategy};
 use crate::tools::ToolRegistry;
 
-use crate::flow::config::{GraphFlow, GraphNode, WorkflowConfig};
 use crate::flow::agent::{ConfigDrivenAgent, ConfigDrivenTool};
+use crate::flow::config::{GraphFlow, GraphNode, WorkflowConfig};
 use crate::flow::services::llm_client_factory::LlmClientFactory;
 
 /// 工作流包，包含流程、Agent 注册表和工具注册表
@@ -69,7 +67,7 @@ pub fn build_flow_from_graph(graph: &GraphFlow) -> Flow {
                             let count = parts
                                 .get(1)
                                 .and_then(|v| v.parse::<usize>().ok())
-                                .unwrap_or(1);
+                                .expect("Invalid join count in strategy");
                             JoinStrategy::Count(count)
                         } else {
                             JoinStrategy::All
@@ -88,8 +86,8 @@ pub fn build_flow_from_graph(graph: &GraphFlow) -> Flow {
                 let continuation = condition.as_ref().map(|c| c.build());
                 builder.add_loop_node(name, entry, continuation, *max_iterations, exit.clone());
             }
-            GraphNode::Tool { name, pipeline } => {
-                builder.add_tool_node(name, pipeline);
+            GraphNode::Tool { name, pipeline, params } => {
+                builder.add_tool_node_with_params(name, pipeline, params.clone());
             }
             GraphNode::Terminal { name } => {
                 builder.add_terminal_node(name);
@@ -122,7 +120,6 @@ pub fn load_workflow_from_value(value: &Value) -> Result<WorkflowBundle> {
 
     let mut agents = AgentRegistry::new();
     for profile in &config.agents {
-        // 使用 LlmClientFactory 创建客户端，统一处理所有逻辑
         let llm_client = LlmClientFactory::create_client(profile)?;
 
         let agent = ConfigDrivenAgent {
@@ -135,6 +132,10 @@ pub fn load_workflow_from_value(value: &Value) -> Result<WorkflowBundle> {
     }
 
     let mut tools = ToolRegistry::new();
+    
+    tools.register(Arc::new(crate::tools::DownloaderTool::new()));
+    tools.register(Arc::new(crate::tools::ImageGeneratorTool::new()));
+    
     for profile in &config.tools {
         let tool = ConfigDrivenTool {
             profile: Arc::new(profile.clone()),
@@ -158,4 +159,3 @@ pub fn load_workflow_from_str(config: &str) -> Result<WorkflowBundle> {
         serde_json::from_str(config).map_err(|e| AgentFlowError::Serialization(e.to_string()))?;
     load_workflow_from_value(&value)
 }
-

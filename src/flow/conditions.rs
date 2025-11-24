@@ -1,7 +1,7 @@
+use crate::state::FlowContext;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
-use crate::state::FlowContext;
 
 /// Flow 条件类型定义
 
@@ -119,4 +119,3 @@ where
 pub fn loop_condition_always() -> LoopContinuation {
     Arc::new(|_| Box::pin(async move { true }))
 }
-

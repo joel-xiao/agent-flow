@@ -1,6 +1,6 @@
+use super::driver::AgentDriverKind;
 use serde::Deserialize;
 use serde_json::Value;
-use super::driver::AgentDriverKind;
 
 /// Agent 配置
 #[derive(Debug, Deserialize, Clone)]
@@ -73,7 +73,12 @@ pub struct FieldExtractionRules {
 }
 
 fn default_user_input_fields() -> Vec<String> {
-    vec!["response".to_string(), "raw".to_string(), "user".to_string(), "goal".to_string()]
+    vec![
+        "response".to_string(),
+        "raw".to_string(),
+        "user".to_string(),
+        "goal".to_string(),
+    ]
 }
 
 fn default_steps_field() -> String {
@@ -92,6 +97,9 @@ pub struct PromptBuildingRules {
     /// 温度值（默认 0.7）
     #[serde(default = "default_temperature")]
     pub temperature: f32,
+    /// 历史上下文最大条目数（可选，默认 3）
+    #[serde(default)]
+    pub max_history_items: Option<usize>,
 }
 
 fn default_role_template() -> String {
@@ -208,4 +216,3 @@ pub struct WorkflowConfig {
     pub tools: Vec<ToolConfig>,
     pub flow: super::graph::GraphFlow,
 }
-

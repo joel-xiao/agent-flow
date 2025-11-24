@@ -1,11 +1,11 @@
-use std::collections::HashMap;
-use serde_json::Value;
-use crate::flow::types::{Flow, FlowTransition, FlowParameter, FlowVariable};
+use crate::flow::conditions::{LoopContinuation, TransitionCondition};
 use crate::flow::nodes::{
-    FlowNode, FlowNodeKind, DecisionNode, DecisionPolicy, DecisionBranch,
-    JoinNode, JoinStrategy, LoopNode, ToolNode,
+    DecisionBranch, DecisionNode, DecisionPolicy, FlowNode, FlowNodeKind, JoinNode, JoinStrategy,
+    LoopNode, ToolNode,
 };
-use crate::flow::conditions::{TransitionCondition, LoopContinuation};
+use crate::flow::types::{Flow, FlowParameter, FlowTransition, FlowVariable};
+use serde_json::Value;
+use std::collections::HashMap;
 
 /// Flow 构建器
 pub struct FlowBuilder {
@@ -119,14 +119,19 @@ impl FlowBuilder {
     }
 
     pub fn add_tool_node(&mut self, name: &str, pipeline: &str) -> &mut Self {
+        self.add_tool_node_with_params(name, pipeline, None)
+    }
+
+    pub fn add_tool_node_with_params(&mut self, name: &str, pipeline: &str, params: Option<Value>) -> &mut Self {
         self.nodes.insert(
             name.to_string(),
             FlowNode {
                 name: name.to_string(),
                 kind: FlowNodeKind::Tool(ToolNode {
                     pipeline: pipeline.to_string(),
+                    params: params.clone(),
                 }),
-                metadata: None,
+                metadata: params,
             },
         );
         self
@@ -234,10 +239,7 @@ impl FlowBuilder {
     }
 
     pub fn build(self) -> Flow {
-        let start = self
-            .start
-            .or_else(|| self.nodes.keys().next().cloned())
-            .unwrap_or_default();
+        let start = self.start.expect("Flow must have a start node");
         Flow {
             name: self.name,
             start,
@@ -248,4 +250,3 @@ impl FlowBuilder {
         }
     }
 }
-

@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use crate::flow::types::Flow;
+use std::collections::HashMap;
 
 /// Flow 注册表
 #[derive(Default)]
@@ -26,4 +26,3 @@ impl FlowRegistry {
         self.flows.values()
     }
 }
-

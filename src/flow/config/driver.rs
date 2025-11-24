@@ -1,6 +1,49 @@
-// use serde::Deserialize;
-
 /// Agent 驱动类型
+/// 
+/// 驱动(Driver)仅作为标识符使用，不包含任何业务逻辑或硬编码配置。
+/// 所有endpoint、model、api_format等配置都应该从JSON配置文件中读取。
+/// 
+/// # 设计原则
+/// 
+/// 1. **纯标识符**: Driver只是一个字符串标识，用于识别提供商
+/// 2. **无硬编码**: 不包含默认endpoint、API格式等业务逻辑
+/// 3. **配置驱动**: 所有配置从JSON读取
+/// 
+/// # 配置示例
+/// 
+/// ```json
+/// {
+///   "driver": "qwen",  // 仅用于标识和环境变量名
+///   "model": "qwen-max",
+///   "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+///   "api_key": "${QWEN_API_KEY}"
+/// }
+/// ```
+/// 
+/// # 支持的Driver
+/// 
+/// - `echo`: 本地回显，用于测试
+/// - `qwen`: 通义千问
+/// - `moonshot`: 月之暗面
+/// - `bigmodel`: 智谱AI
+/// - `deepseek`: DeepSeek
+/// - `openrouter`: OpenRouter
+/// - `doubao`: 豆包
+/// - `claude`: Claude
+/// - `chatgpt`: ChatGPT/OpenAI
+/// - `gemini`: Google Gemini
+/// - `mistral`: Mistral AI
+/// - `yi`: 零一万物
+/// - `generic`: 通用驱动（用于任意兼容OpenAI API的服务）
+/// 
+/// # 添加新的Driver
+/// 
+/// 只需在enum中添加新变体，无需添加任何业务逻辑：
+/// 
+/// ```rust
+/// #[cfg(feature = "openai-client")]
+/// MyNewLLM,
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AgentDriverKind {
     Echo,
@@ -37,6 +80,7 @@ impl Default for AgentDriverKind {
 }
 
 impl AgentDriverKind {
+    /// 获取driver的字符串标识
     pub fn as_str(&self) -> &'static str {
         match self {
             AgentDriverKind::Echo => "echo",
@@ -67,48 +111,17 @@ impl AgentDriverKind {
         }
     }
 
-    /// 获取默认的端点地址
+    /// 获取默认的环境变量名（仅用于API key）
     /// 
-    /// 返回该 driver 的默认端点地址。
-    /// 如果配置中提供了 endpoint，则优先使用配置的值；否则使用此默认值。
-    #[cfg(feature = "openai-client")]
-    pub fn default_endpoint(&self) -> Option<&'static str> {
-        match self {
-            AgentDriverKind::Echo => None,
-            AgentDriverKind::Qwen => Some("https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation"),
-            AgentDriverKind::Moonshot => Some("https://api.moonshot.cn/v1/chat/completions"),
-            AgentDriverKind::BigModel => Some("https://open.bigmodel.cn/api/paas/v4/chat/completions"),
-            AgentDriverKind::DeepSeek => Some("https://api.deepseek.com/chat/completions"),
-            AgentDriverKind::OpenRouter => Some("https://openrouter.ai/api/v1/chat/completions"),
-            AgentDriverKind::Doubao => Some("https://ark.cn-beijing.volces.com/api/v3/chat/completions"),
-            AgentDriverKind::Claude => Some("https://api.anthropic.com/v1/messages"),
-            AgentDriverKind::ChatGPT => Some("https://api.openai.com/v1/chat/completions"),
-            AgentDriverKind::Gemini => Some("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent"),
-            AgentDriverKind::Mistral => Some("https://api.mistral.ai/v1/chat/completions"),
-            AgentDriverKind::Yi => Some("https://api.lingyiwanwu.com/v1/chat/completions"),
-            AgentDriverKind::Generic => None,
-        }
-    }
-
-    #[cfg(feature = "openai-client")]
-    pub fn api_format(&self) -> Option<crate::llm::ApiFormat> {
-        match self {
-            AgentDriverKind::Echo => None,
-            AgentDriverKind::Qwen => Some(crate::llm::ApiFormat::Qwen),
-            AgentDriverKind::Moonshot => Some(crate::llm::ApiFormat::OpenAI),
-            AgentDriverKind::BigModel => Some(crate::llm::ApiFormat::OpenAI),
-            AgentDriverKind::DeepSeek => Some(crate::llm::ApiFormat::OpenAI),
-            AgentDriverKind::OpenRouter => Some(crate::llm::ApiFormat::OpenAI),
-            AgentDriverKind::Doubao => Some(crate::llm::ApiFormat::OpenAI),
-            AgentDriverKind::Claude => Some(crate::llm::ApiFormat::OpenAI),
-            AgentDriverKind::ChatGPT => Some(crate::llm::ApiFormat::OpenAI),
-            AgentDriverKind::Gemini => Some(crate::llm::ApiFormat::OpenAI),
-            AgentDriverKind::Mistral => Some(crate::llm::ApiFormat::OpenAI),
-            AgentDriverKind::Yi => Some(crate::llm::ApiFormat::OpenAI),
-            AgentDriverKind::Generic => None,
-        }
-    }
-
+    /// 这是driver唯一保留的"默认值"，因为：
+    /// 1. 环境变量名是约定俗成的（如OPENAI_API_KEY）
+    /// 2. 不影响业务逻辑
+    /// 3. 可以在配置中覆盖
+    /// 
+    /// # 返回
+    /// 
+    /// - `Some(&str)`: 该driver对应的环境变量名
+    /// - `None`: 该driver没有默认环境变量（如Echo、Generic）
     #[cfg(feature = "openai-client")]
     pub fn default_env_key(&self) -> Option<&'static str> {
         match self {
@@ -165,4 +178,3 @@ impl<'de> serde::Deserialize<'de> for AgentDriverKind {
         }
     }
 }
-

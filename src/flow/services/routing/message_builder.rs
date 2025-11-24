@@ -1,8 +1,8 @@
-use serde_json::{Value, json};
 use crate::agent::{AgentMessage, MessageRole};
 use crate::error::Result;
-use crate::StructuredMessage;
 use crate::flow::constants::fields;
+use crate::StructuredMessage;
+use serde_json::{json, Value};
 
 /// 构建路由消息
 pub fn build_route_message(
@@ -21,14 +21,12 @@ pub fn build_route_message(
     if let Some(response) = response {
         route_message_payload[fields::RESPONSE] = json!(response);
     }
-    
-    let route_message = StructuredMessage::new(route_message_payload)
-        .into_agent_message(
-            MessageRole::Agent,
-            agent_name,
-            Some(target.to_string()),
-        )?;
-    
+
+    let route_message = StructuredMessage::new(route_message_payload).into_agent_message(
+        MessageRole::Agent,
+        agent_name,
+        Some(target.to_string()),
+    )?;
+
     Ok(route_message)
 }
-

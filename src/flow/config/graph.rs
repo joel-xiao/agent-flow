@@ -1,12 +1,10 @@
-use serde::Deserialize;
-use serde_json::Value;
 use crate::flow::{
-    FlowParameter, FlowParameterKind, FlowVariable,
-    TransitionCondition, LoopContinuation,
-    condition_always, condition_state_absent, condition_state_equals,
-    condition_state_exists, condition_state_not_equals, loop_condition_always,
+    condition_always, condition_state_absent, condition_state_equals, condition_state_exists,
+    condition_state_not_equals, loop_condition_always, FlowParameter, FlowParameterKind,
+    FlowVariable, LoopContinuation, TransitionCondition,
 };
 use crate::state::FlowScopeKind;
+use serde::Deserialize;
 
 /// Graph 工作流参数配置
 #[derive(Debug, Deserialize, Clone)]
@@ -182,6 +180,8 @@ pub enum GraphNode {
     Tool {
         name: String,
         pipeline: String,
+        #[serde(default)]
+        params: Option<serde_json::Value>,
     },
     Terminal {
         name: String,
@@ -212,4 +212,3 @@ pub struct GraphFlow {
     #[serde(default)]
     pub transitions: Vec<GraphTransition>,
 }
-
