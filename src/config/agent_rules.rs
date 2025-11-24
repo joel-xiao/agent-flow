@@ -29,7 +29,12 @@ pub struct FieldExtractionRules {
 }
 
 fn default_user_input_fields() -> Vec<String> {
-    vec!["response".to_string(), "raw".to_string(), "user".to_string(), "goal".to_string()]
+    vec![
+        "response".to_string(),
+        "raw".to_string(),
+        "user".to_string(),
+        "goal".to_string(),
+    ]
 }
 
 fn default_steps_field() -> String {
@@ -131,4 +136,3 @@ pub struct ImageProcessingRules {
 fn default_vision_keywords() -> Vec<String> {
     vec!["vl".to_string(), "vision".to_string()]
 }
-

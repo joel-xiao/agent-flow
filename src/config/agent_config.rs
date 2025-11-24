@@ -1,9 +1,9 @@
+use super::agent_rules::AgentRules;
+use super::graph::GraphNode;
+use crate::error::{AgentFlowError, Result};
+use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use crate::error::{Result, AgentFlowError};
-use anyhow::anyhow;
-use super::graph::GraphNode;
-use super::agent_rules::AgentRules;
 
 /// Agent 节点配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -44,10 +44,12 @@ impl GraphNode {
     /// 尝试解析为 Agent 配置
     pub fn as_agent(&self) -> Result<AgentConfig> {
         if self.node_type != "agent" {
-            return Err(AgentFlowError::Other(anyhow!("Node {} is not an agent", self.id)));
+            return Err(AgentFlowError::Other(anyhow!(
+                "Node {} is not an agent",
+                self.id
+            )));
         }
         serde_json::from_value(self.config.clone())
             .map_err(|e| AgentFlowError::Other(anyhow!("Failed to parse agent config: {}", e)))
     }
 }
-
