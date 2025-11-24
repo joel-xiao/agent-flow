@@ -12,5 +12,4 @@ pub use message::{AgentMessage, MessageRole};
 pub use registry::{register_agent, AgentRegistry};
 
 // Re-export uuid for backward compatibility
-// uuid 是内部函数，不对外导出
-// pub use message::uuid;
+pub use message::uuid;

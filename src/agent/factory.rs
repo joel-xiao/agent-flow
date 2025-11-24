@@ -26,9 +26,10 @@ impl AgentFactoryRegistry {
     }
 
     pub fn build(&self, factory_name: &str, config: Option<Value>) -> Result<Arc<dyn Agent>> {
-        let builder = self.factories.get(factory_name).ok_or_else(|| {
-            AgentFlowError::AgentNotRegistered(factory_name.to_string())
-        })?;
+        let builder = self
+            .factories
+            .get(factory_name)
+            .ok_or_else(|| AgentFlowError::AgentNotRegistered(factory_name.to_string()))?;
         builder(config)
     }
 
@@ -36,4 +37,3 @@ impl AgentFactoryRegistry {
         self.factories.contains_key(name)
     }
 }
-

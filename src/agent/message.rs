@@ -94,4 +94,3 @@ pub fn uuid() -> String {
         .expect("time went backwards");
     format!("msg-{}-{}", now.as_secs(), now.subsec_nanos())
 }
-
