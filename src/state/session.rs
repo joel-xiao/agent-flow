@@ -1,6 +1,6 @@
-use std::sync::Arc;
-use crate::error::Result;
 use super::store::ContextStore;
+use crate::error::Result;
+use std::sync::Arc;
 
 const SESSION_PREFIX: &str = "session";
 
@@ -29,4 +29,3 @@ impl SessionContext {
         self.store.delete(&Self::key_with_prefix(key)).await
     }
 }
-

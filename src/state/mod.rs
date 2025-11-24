@@ -1,13 +1,13 @@
 // 状态管理模块
 
-mod store;
 mod context;
-mod session;
 mod scope;
+mod session;
+mod store;
 
-pub use store::{ContextStore, MemoryStore};
+pub use context::FlowContext;
+pub use scope::{FlowScopeGuard, FlowScopeKind, FlowVariables};
+pub use session::SessionContext;
 #[cfg(feature = "redis-store")]
 pub use store::redis::RedisStore;
-pub use context::FlowContext;
-pub use session::SessionContext;
-pub use scope::{FlowScopeKind, FlowScopeGuard, FlowVariables};
+pub use store::{ContextStore, MemoryStore};

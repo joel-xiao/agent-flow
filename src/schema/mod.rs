@@ -1,16 +1,16 @@
 // Schema 模块
 
 mod error;
-mod schema;
 mod registry;
+mod schema;
 mod validation;
 
 pub use error::SchemaError;
-pub use schema::{Schema, SchemaKind};
 pub use registry::SchemaRegistry;
+pub use schema::{Schema, SchemaKind};
 
-use std::sync::{Mutex, OnceLock};
 use serde_json::Value;
+use std::sync::{Mutex, OnceLock};
 
 static REGISTRY: OnceLock<Mutex<SchemaRegistry>> = OnceLock::new();
 

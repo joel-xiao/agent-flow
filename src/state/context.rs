@@ -1,9 +1,8 @@
-use std::sync::Arc;
-use parking_lot::RwLock;
-use crate::agent::AgentMessage;
-use crate::error::Result;
+use super::scope::{FlowScopeKind, ScopeId, ScopeStack};
 use super::store::ContextStore;
-use super::scope::{ScopeStack, FlowScopeKind, ScopeId};
+use crate::agent::AgentMessage;
+use parking_lot::RwLock;
+use std::sync::Arc;
 
 /// Flow 上下文
 #[derive(Clone)]
@@ -54,18 +53,10 @@ impl FlowContext {
 
     pub fn scope(&self, kind: FlowScopeKind) -> super::scope::FlowScopeGuard {
         let scope_id = self.scopes.push_scope(kind.clone());
-        super::scope::FlowScopeGuard::new(
-            Arc::clone(&self.scopes),
-            scope_id,
-            kind,
-        )
+        super::scope::FlowScopeGuard::new(Arc::clone(&self.scopes), scope_id, kind)
     }
 
     pub fn variables(&self) -> super::scope::FlowVariables {
-        super::scope::FlowVariables::new(
-            Arc::clone(&self.scopes),
-            self.global_scope_id,
-        )
+        super::scope::FlowVariables::new(Arc::clone(&self.scopes), self.global_scope_id)
     }
 }
-

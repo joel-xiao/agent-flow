@@ -1,5 +1,5 @@
-use super::schema::{Schema, SchemaKind};
 use super::error::SchemaError;
+use super::schema::{Schema, SchemaKind};
 
 /// 验证值是否符合 Schema
 pub fn validate_value(
@@ -103,4 +103,3 @@ pub fn validate_value(
 
     Ok(())
 }
-

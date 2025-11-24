@@ -1,6 +1,6 @@
-use std::collections::HashMap;
-use super::schema::Schema;
 use super::error::SchemaError;
+use super::schema::Schema;
+use std::collections::HashMap;
 
 /// Schema 注册表
 #[derive(Default)]
@@ -32,9 +32,12 @@ impl SchemaRegistry {
             .ok_or_else(|| SchemaError::NotRegistered(name.to_string()))
     }
 
-    pub fn validate(&self, name: &str, value: &serde_json::Value) -> std::result::Result<(), SchemaError> {
+    pub fn validate(
+        &self,
+        name: &str,
+        value: &serde_json::Value,
+    ) -> std::result::Result<(), SchemaError> {
         let schema = self.get(name)?;
         super::validation::validate_value(schema, value, &mut Vec::new())
     }
 }
-

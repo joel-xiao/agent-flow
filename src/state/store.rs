@@ -1,8 +1,7 @@
-use std::collections::HashMap;
-use std::sync::Arc;
+use crate::error::Result;
 use async_trait::async_trait;
 use parking_lot::RwLock;
-use crate::error::Result;
+use std::collections::HashMap;
 
 /// 上下文存储 trait
 #[async_trait]
@@ -46,14 +45,14 @@ impl ContextStore for MemoryStore {
 pub mod redis {
     use super::*;
     use crate::error::AgentFlowError;
-    use redis::AsyncCommands;
+    use ::redis::AsyncCommands;
 
     pub struct RedisStore {
-        client: redis::Client,
+        client: ::redis::Client,
     }
 
     impl RedisStore {
-        pub fn new(client: redis::Client) -> Self {
+        pub fn new(client: ::redis::Client) -> Self {
             Self { client }
         }
     }
@@ -98,4 +97,3 @@ pub mod redis {
         }
     }
 }
-

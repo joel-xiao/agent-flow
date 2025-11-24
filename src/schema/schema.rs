@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// Schema 类型枚举
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -63,4 +63,3 @@ impl Schema {
         true
     }
 }
-

@@ -1,6 +1,6 @@
+use crate::error::{ErrorSeverity, FrameworkError};
 use serde_json::json;
 use thiserror::Error;
-use crate::error::{ErrorSeverity, FrameworkError};
 
 /// Schema 错误类型
 #[derive(Debug, Error)]
@@ -33,4 +33,3 @@ impl From<SchemaError> for FrameworkError {
         }
     }
 }
-

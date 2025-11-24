@@ -7,7 +7,7 @@ use serde_json::Value;
 use thiserror::Error;
 
 use crate::error::AgentFlowError;
-use crate::schema::{Schema, SchemaKind, register_schema};
+use crate::schema::{register_schema, Schema, SchemaKind};
 use crate::tools::ToolRegistry;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]

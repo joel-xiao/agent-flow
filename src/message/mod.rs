@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use serde_json::{Value, json};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde_json::{json, Value};
 
 use crate::agent::{AgentMessage, MessageRole};
 use crate::error::{AgentFlowError, Result};
