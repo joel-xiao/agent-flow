@@ -3,7 +3,7 @@ use std::path::Path;
 use serde::Serialize;
 
 use crate::plugin::{PluginError, PluginManifest, PluginRegistry};
-use crate::schema::{Schema, schemas_snapshot};
+use crate::schema::{schemas_snapshot, Schema};
 
 #[derive(Clone, Debug, Serialize)]
 pub struct SchemaExportEntry {

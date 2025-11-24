@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use agentflow::{PluginKind, PluginManifest, load_plugin_manifests, schema_exports};
+use agentflow::{load_plugin_manifests, schema_exports, PluginKind, PluginManifest};
 use clap::{Parser, Subcommand};
 use serde_json::json;
 
@@ -48,11 +48,8 @@ enum SchemaCommand {
 
 #[derive(Subcommand)]
 enum FlowCommand {
-    Trace {
-        id: String,
-    },
+    Trace { id: String },
 }
-
 
 fn main() -> anyhow::Result<()> {
     tracing_subscriber::FmtSubscriber::builder()
@@ -67,10 +64,7 @@ fn main() -> anyhow::Result<()> {
             PluginCommand::List { dir } => handle_plugins_list(dir)?,
         },
         Command::Schema { command } => match command {
-            SchemaCommand::Export {
-                output,
-                pretty,
-            } => handle_schema_export(output, pretty)?,
+            SchemaCommand::Export { output, pretty } => handle_schema_export(output, pretty)?,
         },
         Command::Flow { command } => match command {
             FlowCommand::Trace { id } => handle_flow_trace(id)?,
@@ -115,10 +109,7 @@ fn render_kind(kind: PluginKind) -> String {
     }
 }
 
-fn handle_schema_export(
-    output: Option<PathBuf>,
-    pretty: bool,
-) -> anyhow::Result<()> {
+fn handle_schema_export(output: Option<PathBuf>, pretty: bool) -> anyhow::Result<()> {
     let entries = schema_exports();
     let value = json!(entries);
 
@@ -138,6 +129,9 @@ fn handle_schema_export(
 }
 
 fn handle_flow_trace(id: String) -> anyhow::Result<()> {
-    println!("Flow trace `{}` is not persisted yet. Please enable event storage before querying.", id);
+    println!(
+        "Flow trace `{}` is not persisted yet. Please enable event storage before querying.",
+        id
+    );
     Ok(())
 }
