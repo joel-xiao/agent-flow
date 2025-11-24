@@ -1,10 +1,10 @@
-use std::collections::HashMap;
+use crate::error::{AgentFlowError, Result};
+use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use crate::error::{Result, AgentFlowError};
-use anyhow::anyhow;
+use std::collections::HashMap;
 
-use super::json_config::{JsonApiConfig, JsonApiClient};
+use super::json_config::{JsonApiClient, JsonApiConfig};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServiceConfig {
@@ -60,8 +60,9 @@ impl ServiceConfig {
     }
 
     pub fn from_value(value: Value) -> Result<Self> {
-        serde_json::from_value(value)
-            .map_err(|e| AgentFlowError::Other(anyhow!("Failed to parse service config value: {}", e)))
+        serde_json::from_value(value).map_err(|e| {
+            AgentFlowError::Other(anyhow!("Failed to parse service config value: {}", e))
+        })
     }
 
     pub fn get_service(&self, name: &str) -> Option<&ServiceDefinition> {
@@ -69,25 +70,29 @@ impl ServiceConfig {
     }
 
     pub fn create_client(&self, service_name: &str) -> Result<JsonApiClient> {
-        let service = self.get_service(service_name)
-            .ok_or_else(|| AgentFlowError::Other(anyhow!("Service '{}' not found", service_name)))?;
+        let service = self.get_service(service_name).ok_or_else(|| {
+            AgentFlowError::Other(anyhow!("Service '{}' not found", service_name))
+        })?;
 
         let mut json_config = JsonApiConfig {
             base_url: service.base_url.clone(),
             api_key: service.api_key.clone(),
             auth_header: service.auth_header.clone(),
-            default_headers: service.default_headers.clone().unwrap_or_default(),
+            default_headers: service.default_headers.clone().unwrap_or_else(HashMap::new),
             endpoints: HashMap::new(),
         };
 
         for node in &self.api_graph.nodes {
             if node.service == service_name {
-                json_config.endpoints.insert(node.id.clone(), super::json_config::EndpointConfig {
-                    path: node.path.clone(),
-                    method: Some(node.method.clone()),
-                    default_headers: None,
-                    response_transform: None,
-                });
+                json_config.endpoints.insert(
+                    node.id.clone(),
+                    super::json_config::EndpointConfig {
+                        path: node.path.clone(),
+                        method: Some(node.method.clone()),
+                        default_headers: None,
+                        response_transform: None,
+                    },
+                );
             }
         }
 
@@ -103,7 +108,9 @@ impl ServiceConfig {
     }
 
     pub fn list_nodes_by_service(&self, service_name: &str) -> Vec<&ApiNode> {
-        self.api_graph.nodes.iter()
+        self.api_graph
+            .nodes
+            .iter()
             .filter(|n| n.service == service_name)
             .collect()
     }
@@ -113,13 +120,17 @@ impl ServiceConfig {
     }
 
     pub fn get_edges_from(&self, node_id: &str) -> Vec<&ApiEdge> {
-        self.api_graph.edges.iter()
+        self.api_graph
+            .edges
+            .iter()
             .filter(|e| e.from == node_id)
             .collect()
     }
 
     pub fn get_edges_to(&self, node_id: &str) -> Vec<&ApiEdge> {
-        self.api_graph.edges.iter()
+        self.api_graph
+            .edges
+            .iter()
             .filter(|e| e.to == node_id)
             .collect()
     }
@@ -170,11 +181,14 @@ impl ServiceManager {
         query_params: Option<HashMap<String, String>>,
         headers: Option<HashMap<String, String>>,
     ) -> Result<Value> {
-        let node = self.config.get_node(node_id)
+        let node = self
+            .config
+            .get_node(node_id)
             .ok_or_else(|| AgentFlowError::Other(anyhow!("Node '{}' not found", node_id)))?;
 
-        let client = self.get_client(&node.service)
-            .ok_or_else(|| AgentFlowError::Other(anyhow!("Client for service '{}' not found", node.service)))?;
+        let client = self.get_client(&node.service).ok_or_else(|| {
+            AgentFlowError::Other(anyhow!("Client for service '{}' not found", node.service))
+        })?;
 
         let request = super::json_config::ApiCallRequest {
             endpoint: node_id.to_string(),
@@ -188,4 +202,3 @@ impl ServiceManager {
         client.call(&request).await
     }
 }
-

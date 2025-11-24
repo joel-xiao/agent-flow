@@ -13,19 +13,15 @@
 //! - 支持流式响应和普通响应
 
 #[cfg(feature = "openai-client")]
+pub mod configs;
+#[cfg(feature = "openai-client")]
 pub mod generic;
 #[cfg(feature = "openai-client")]
 pub mod stream;
+
 #[cfg(feature = "openai-client")]
-pub mod configs;
-
-// 注意：QwenClient 和 OpenAiClient 已废弃，统一使用 GenericHttpClient
-// 所有参数从 AgentConfig 和 driver.rs 读取，不再硬编码
-
+pub use configs::*;
 #[cfg(feature = "openai-client")]
 pub use generic::GenericHttpClient;
 #[cfg(feature = "openai-client")]
 pub use stream::SseParser;
-#[cfg(feature = "openai-client")]
-pub use configs::*;
-

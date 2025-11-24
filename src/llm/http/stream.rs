@@ -1,10 +1,10 @@
-use crate::error::{Result, AgentFlowError};
+use crate::error::{AgentFlowError, Result};
 use crate::llm::types::LlmStreamChunk;
 use anyhow::anyhow;
 use serde_json::Value;
 
 /// SSE (Server-Sent Events) 解析器
-/// 
+///
 /// 用于解析流式响应中的 SSE 格式数据
 pub struct SseParser {
     buffer: String,
@@ -18,36 +18,33 @@ impl SseParser {
     }
 
     /// 解析数据块，返回流式 chunk 列表
-    /// 
+    ///
     /// SSE 格式：
     /// ```
     /// data: {"id":"...","choices":[{"delta":{"content":"Hello"}}]}
-    /// 
+    ///
     /// data: {"id":"...","choices":[{"delta":{"content":" world"}}]}
-    /// 
+    ///
     /// data: [DONE]
     /// ```
     pub fn parse_chunk(&mut self, data: &[u8]) -> Result<Vec<LlmStreamChunk>> {
-        // 将数据追加到 buffer
         let text = String::from_utf8_lossy(data);
         self.buffer.push_str(&text);
 
         let mut chunks = Vec::new();
         let mut processed = 0;
 
-        // 按 \n\n 分割完整的事件
         while let Some(end_pos) = self.buffer[processed..].find("\n\n") {
             let event_end = processed + end_pos;
             let event_text = &self.buffer[processed..event_end];
-            
+
             if let Some(chunk) = self.parse_event(event_text)? {
                 chunks.push(chunk);
             }
-            
-            processed = event_end + 2; // 跳过 \n\n
+
+            processed = event_end + 2;
         }
 
-        // 移除已处理的数据
         if processed > 0 {
             self.buffer.drain(..processed);
         }
@@ -57,7 +54,6 @@ impl SseParser {
 
     /// 解析单个 SSE 事件
     fn parse_event(&self, event_text: &str) -> Result<Option<LlmStreamChunk>> {
-        // 跳过 "data: " 前缀
         let data = if event_text.starts_with("data: ") {
             &event_text[6..]
         } else if event_text.starts_with("data:") {
@@ -66,7 +62,6 @@ impl SseParser {
             event_text.trim()
         };
 
-        // 检查是否为结束标记
         if data.trim() == "[DONE]" {
             return Ok(Some(LlmStreamChunk {
                 content: String::new(),
@@ -74,11 +69,10 @@ impl SseParser {
             }));
         }
 
-        // 解析 JSON
-        let json: Value = serde_json::from_str(data)
-            .map_err(|e| AgentFlowError::Other(anyhow!("Failed to parse SSE JSON: {}: {}", e, data)))?;
+        let json: Value = serde_json::from_str(data).map_err(|e| {
+            AgentFlowError::Other(anyhow!("Failed to parse SSE JSON: {}: {}", e, data))
+        })?;
 
-        // 提取 content delta
         let content = self.extract_content_delta(&json)?;
 
         if content.is_empty() {
@@ -92,13 +86,12 @@ impl SseParser {
     }
 
     /// 从 JSON 中提取 content delta
-    /// 
+    ///
     /// 支持多种 API 格式：
     /// - OpenAI: choices[0].delta.content
     /// - Qwen: output.text 或 choices[0].delta.content
     /// - QwenVision: choices[0].delta.content
     fn extract_content_delta(&self, json: &Value) -> Result<String> {
-        // 尝试 OpenAI 格式
         if let Some(content) = json["choices"]
             .as_array()
             .and_then(|choices| choices.get(0))
@@ -107,12 +100,10 @@ impl SseParser {
             return Ok(content.to_string());
         }
 
-        // 尝试 Qwen 格式（output.text）
         if let Some(content) = json["output"]["text"].as_str() {
             return Ok(content.to_string());
         }
 
-        // 尝试 Qwen 格式（output.choices）
         if let Some(content) = json["output"]["choices"]
             .as_array()
             .and_then(|choices| choices.get(0))
@@ -121,7 +112,6 @@ impl SseParser {
             return Ok(content.to_string());
         }
 
-        // 如果没有找到 content，返回空字符串
         Ok(String::new())
     }
 
@@ -145,7 +135,7 @@ mod tests {
     fn test_parse_openai_sse() {
         let mut parser = SseParser::new();
         let data = b"data: {\"id\":\"chatcmpl-123\",\"choices\":[{\"delta\":{\"content\":\"Hello\"}}]}\n\ndata: {\"id\":\"chatcmpl-123\",\"choices\":[{\"delta\":{\"content\":\" world\"}}]}\n\n";
-        
+
         let chunks = parser.parse_chunk(data).unwrap();
         assert_eq!(chunks.len(), 2);
         assert_eq!(chunks[0].content, "Hello");
@@ -156,7 +146,7 @@ mod tests {
     fn test_parse_done() {
         let mut parser = SseParser::new();
         let data = b"data: [DONE]\n\n";
-        
+
         let chunks = parser.parse_chunk(data).unwrap();
         assert_eq!(chunks.len(), 1);
         assert!(chunks[0].done);
@@ -166,10 +156,9 @@ mod tests {
     fn test_parse_qwen_format() {
         let mut parser = SseParser::new();
         let data = b"data: {\"output\":{\"text\":\"Hello\"}}\n\n";
-        
+
         let chunks = parser.parse_chunk(data).unwrap();
         assert_eq!(chunks.len(), 1);
         assert_eq!(chunks[0].content, "Hello");
     }
 }
-

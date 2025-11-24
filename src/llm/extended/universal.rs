@@ -1,9 +1,9 @@
-use std::collections::HashMap;
-use std::sync::Arc;
+use crate::error::{AgentFlowError, Result};
 use anyhow::anyhow;
 use reqwest::{Client, Method};
 use serde_json::Value;
-use crate::error::{Result, AgentFlowError};
+use std::collections::HashMap;
+use std::sync::Arc;
 
 use crate::llm::config::ApiEndpointConfig;
 
@@ -86,17 +86,23 @@ impl UniversalApiClient {
     }
 
     pub async fn call(&self, call_config: ApiCallConfig) -> Result<Value> {
-        let mut url = self.config.get_endpoint(&call_config.endpoint_key)
-            .ok_or_else(|| AgentFlowError::Other(anyhow!(
-                "Endpoint '{}' not configured", call_config.endpoint_key
-            )))?;
+        let mut url = self
+            .config
+            .get_endpoint(&call_config.endpoint_key)
+            .ok_or_else(|| {
+                AgentFlowError::Other(anyhow!(
+                    "Endpoint '{}' not configured",
+                    call_config.endpoint_key
+                ))
+            })?;
 
         for (key, value) in &call_config.path_params {
             url = url.replace(&format!("{{{}}}", key), value);
         }
 
         if !call_config.query_params.is_empty() {
-            let query_string = call_config.query_params
+            let query_string = call_config
+                .query_params
                 .iter()
                 .map(|(k, v)| format!("{}={}", k, v))
                 .collect::<Vec<_>>()
@@ -104,11 +110,14 @@ impl UniversalApiClient {
             url = format!("{}?{}", url, query_string);
         }
 
-        let auth_value = self.config.auth_header.as_ref()
-            .map(|h| format!("{} {}", h, self.api_key))
-            .unwrap_or_else(|| format!("Bearer {}", self.api_key));
+        let auth_value = if let Some(auth_header) = &self.config.auth_header {
+            format!("{} {}", auth_header, self.api_key)
+        } else {
+            format!("Bearer {}", self.api_key)
+        };
 
-        let mut request_builder = self.client
+        let mut request_builder = self
+            .client
             .request(call_config.method.clone(), &url)
             .header("Authorization", auth_value);
 
@@ -135,15 +144,13 @@ impl UniversalApiClient {
         let response = request_builder
             .send()
             .await
-            .map_err(|e| AgentFlowError::Other(anyhow!(
-                "HTTP request error: {}", e
-            )))?;
+            .map_err(|e| AgentFlowError::Other(anyhow!("HTTP request error: {}", e)))?;
 
         let status = response.status();
-        let response_text = response.text().await
-            .map_err(|e| AgentFlowError::Other(anyhow!(
-                "Failed to read response: {}", e
-            )))?;
+        let response_text = response
+            .text()
+            .await
+            .map_err(|e| AgentFlowError::Other(anyhow!("Failed to read response: {}", e)))?;
 
         if !status.is_success() {
             return Err(AgentFlowError::Other(anyhow!(
@@ -158,8 +165,8 @@ impl UniversalApiClient {
             )));
         }
 
-        let mut payload: Value = serde_json::from_str(&response_text)
-            .map_err(|e| AgentFlowError::Other(anyhow!(
+        let mut payload: Value = serde_json::from_str(&response_text).map_err(|e| {
+            AgentFlowError::Other(anyhow!(
                 "Response parse error: {}\nResponse body: {}",
                 e,
                 if response_text.len() > 500 {
@@ -167,7 +174,8 @@ impl UniversalApiClient {
                 } else {
                     response_text
                 }
-            )))?;
+            ))
+        })?;
 
         if let Some(transform) = call_config.response_transform {
             payload = transform(payload)?;
@@ -177,20 +185,28 @@ impl UniversalApiClient {
     }
 
     pub async fn call_raw(&self, call_config: ApiCallConfig) -> Result<Vec<u8>> {
-        let mut url = self.config.get_endpoint(&call_config.endpoint_key)
-            .ok_or_else(|| AgentFlowError::Other(anyhow!(
-                "Endpoint '{}' not configured", call_config.endpoint_key
-            )))?;
+        let mut url = self
+            .config
+            .get_endpoint(&call_config.endpoint_key)
+            .ok_or_else(|| {
+                AgentFlowError::Other(anyhow!(
+                    "Endpoint '{}' not configured",
+                    call_config.endpoint_key
+                ))
+            })?;
 
         for (key, value) in &call_config.path_params {
             url = url.replace(&format!("{{{}}}", key), value);
         }
 
-        let auth_value = self.config.auth_header.as_ref()
-            .map(|h| format!("{} {}", h, self.api_key))
-            .unwrap_or_else(|| format!("Bearer {}", self.api_key));
+        let auth_value = if let Some(auth_header) = &self.config.auth_header {
+            format!("{} {}", auth_header, self.api_key)
+        } else {
+            format!("Bearer {}", self.api_key)
+        };
 
-        let mut request_builder = self.client
+        let mut request_builder = self
+            .client
             .request(call_config.method.clone(), &url)
             .header("Authorization", auth_value);
 
@@ -217,22 +233,23 @@ impl UniversalApiClient {
         let response = request_builder
             .send()
             .await
-            .map_err(|e| AgentFlowError::Other(anyhow!(
-                "HTTP request error: {}", e
-            )))?;
+            .map_err(|e| AgentFlowError::Other(anyhow!("HTTP request error: {}", e)))?;
 
         let status = response.status();
         if !status.is_success() {
-            let error_text = response.text().await.unwrap_or_default();
+            let error_text = response.text().await
+                .map_err(|e| AgentFlowError::Other(anyhow!("Failed to read error response: {}", e)))?;
             return Err(AgentFlowError::Other(anyhow!(
-                "Request failed with status {}: {}", status, error_text
+                "Request failed with status {}: {}",
+                status,
+                error_text
             )));
         }
 
-        let bytes = response.bytes().await
-            .map_err(|e| AgentFlowError::Other(anyhow!(
-                "Failed to read response: {}", e
-            )))?;
+        let bytes = response
+            .bytes()
+            .await
+            .map_err(|e| AgentFlowError::Other(anyhow!("Failed to read response: {}", e)))?;
 
         Ok(bytes.to_vec())
     }
@@ -317,4 +334,3 @@ impl ApiCallBuilder {
         self.client.call_raw(self.config).await
     }
 }
-

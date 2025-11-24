@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 /// API 端点配置
-/// 
+///
 /// 用于配置 LLM API 的端点和请求头
 pub struct ApiEndpointConfig {
     pub base_url: String,
@@ -31,14 +31,14 @@ impl ApiEndpointConfig {
     }
 
     pub fn with_default_header(mut self, key: &str, value: &str) -> Self {
-        self.default_headers.insert(key.to_string(), value.to_string());
+        self.default_headers
+            .insert(key.to_string(), value.to_string());
         self
     }
 
     pub fn get_endpoint(&self, name: &str) -> Option<String> {
-        self.endpoints.get(name).map(|path| {
-            format!("{}{}", self.base_url, path)
-        })
+        self.endpoints
+            .get(name)
+            .map(|path| format!("{}{}", self.base_url, path))
     }
 }
-

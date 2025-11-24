@@ -1,32 +1,31 @@
-//! 扩展 LLM 客户端模块
+//! 扩展 LLM 模块
 //!
-//! 此模块提供扩展的 LLM API 客户端功能，包括：
-//! - `GenericApiClient`: 通用 API 客户端
+//! 此模块提供JSON配置驱动的API客户端功能：
+//! - `JsonApiClient`: 基于JSON配置的API客户端
 //! - `UniversalApiClient`: 通用 API 客户端构建器
-//! - `ExtendedApiClient`: 扩展 API 客户端 trait
 //! - JSON 配置支持
 //! - 服务配置管理
 //!
-//! **注意**：此模块主要用于高级用例和扩展功能。
-//! 对于大多数用例，建议使用 `crate::llm::http::GenericHttpClient`。
+//! **重要**: 
+//! - 核心LLM调用请使用 `crate::llm::http::GenericHttpClient`
+//! - 此模块主要用于需要JSON配置驱动的高级用例
 //!
-//! **状态**：此模块目前处于维护状态，新功能建议优先考虑使用核心模块。
+//! **v2.0 变更**:
+//! - 已移除 `GenericApiClient` 和 `ExtendedApiClient`（使用 `GenericHttpClient` 替代）
+//! - 已移除 client 目录（包含大量厂商专用代码）
+//! - 保留JSON配置相关功能用于特殊场景
 
-pub mod traits;
-pub mod types;
-pub mod client;
-pub mod universal;
 pub mod json_config;
 pub mod json_unified;
 pub mod service_config;
-#[cfg(test)]
-pub mod examples;
+pub mod universal;
 
-pub use traits::{ExtendedApiClient, DynExtendedApiClient};
-pub use types::*;
-pub use client::GenericApiClient;
-pub use universal::{UniversalApiClient, ApiBuilder, ApiCallBuilder};
-pub use json_config::{JsonApiConfig, JsonApiClient, ApiCallRequest, EndpointConfig};
-pub use json_unified::{UnifiedJsonConfig, UnifiedApiManager, ApiProviderConfig, ApiCallConfig as UnifiedApiCallConfig, EndpointDefinition};
-pub use service_config::{ServiceConfig, ServiceManager, ServiceDefinition, ApiGraph, ApiNode, ApiEdge};
-
+pub use json_config::{ApiCallRequest, EndpointConfig, JsonApiClient, JsonApiConfig};
+pub use json_unified::{
+    ApiCallConfig as UnifiedApiCallConfig, ApiProviderConfig, EndpointDefinition,
+    UnifiedApiManager, UnifiedJsonConfig,
+};
+pub use service_config::{
+    ApiEdge, ApiGraph, ApiNode, ServiceConfig, ServiceDefinition, ServiceManager,
+};
+pub use universal::{ApiBuilder, ApiCallBuilder, UniversalApiClient};

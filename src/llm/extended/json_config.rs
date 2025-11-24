@@ -1,13 +1,12 @@
-use std::collections::HashMap;
-use std::sync::Arc;
+use crate::error::{AgentFlowError, Result};
 use anyhow::anyhow;
-use reqwest::{Client, Method};
+use reqwest::Method;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use crate::error::{Result, AgentFlowError};
+use std::collections::HashMap;
 
+use super::universal::{ApiBuilder, UniversalApiClient};
 use crate::llm::config::ApiEndpointConfig;
-use super::universal::{UniversalApiClient, ApiBuilder};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JsonApiConfig {
@@ -94,14 +93,20 @@ impl ApiCallRequest {
     }
 
     pub async fn execute(&self, api: &ApiBuilder) -> Result<Value> {
-        let method = self.method.as_deref().unwrap_or("POST");
+        let method = self.method.as_deref()
+            .ok_or_else(|| AgentFlowError::Other(anyhow!("Missing HTTP method")))?;
         let http_method = match method.to_uppercase().as_str() {
             "GET" => Method::GET,
             "POST" => Method::POST,
             "PUT" => Method::PUT,
             "DELETE" => Method::DELETE,
             "PATCH" => Method::PATCH,
-            _ => return Err(AgentFlowError::Other(anyhow!("Unsupported HTTP method: {}", method))),
+            _ => {
+                return Err(AgentFlowError::Other(anyhow!(
+                    "Unsupported HTTP method: {}",
+                    method
+                )))
+            }
         };
 
         let mut builder = match http_method {
@@ -173,4 +178,3 @@ impl JsonApiClient {
         &self.config
     }
 }
-

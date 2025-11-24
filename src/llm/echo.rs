@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use crate::error::Result;
-use super::client::{LlmClient, DynLlmClient};
+use super::client::{DynLlmClient, LlmClient};
 use super::types::{LlmRequest, LlmResponse};
+use crate::error::Result;
 
 #[derive(Default, Clone)]
 pub struct LocalEchoClient;
@@ -22,4 +22,3 @@ impl LlmClient for LocalEchoClient {
         Arc::new(LocalEchoClient)
     }
 }
-

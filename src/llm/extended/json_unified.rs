@@ -1,10 +1,10 @@
-use std::collections::HashMap;
+use crate::error::{AgentFlowError, Result};
+use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use crate::error::{Result, AgentFlowError};
-use anyhow::anyhow;
+use std::collections::HashMap;
 
-use super::json_config::{JsonApiConfig, JsonApiClient, ApiCallRequest};
+use super::json_config::{ApiCallRequest, JsonApiClient, JsonApiConfig};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UnifiedJsonConfig {
@@ -65,8 +65,9 @@ pub struct ApiCallConfig {
 
 impl UnifiedJsonConfig {
     pub fn from_json(json: &str) -> Result<Self> {
-        serde_json::from_str(json)
-            .map_err(|e| AgentFlowError::Other(anyhow!("Failed to parse unified JSON config: {}", e)))
+        serde_json::from_str(json).map_err(|e| {
+            AgentFlowError::Other(anyhow!("Failed to parse unified JSON config: {}", e))
+        })
     }
 
     pub fn from_value(value: Value) -> Result<Self> {
@@ -79,7 +80,8 @@ impl UnifiedJsonConfig {
     }
 
     pub fn get_api_call(&self, category: &str, name: &str) -> Option<&ApiCallConfig> {
-        self.api_calls.get(category)
+        self.api_calls
+            .get(category)
             .and_then(|category_calls| category_calls.get(name))
     }
 
@@ -94,31 +96,37 @@ impl UnifiedJsonConfig {
     }
 
     pub fn create_client(&self, provider_name: &str) -> Result<JsonApiClient> {
-        let provider = self.get_provider(provider_name)
-            .ok_or_else(|| AgentFlowError::Other(anyhow!("Provider '{}' not found", provider_name)))?;
+        let provider = self.get_provider(provider_name).ok_or_else(|| {
+            AgentFlowError::Other(anyhow!("Provider '{}' not found", provider_name))
+        })?;
 
-        let base_url = provider.base_url.as_ref()
-            .ok_or_else(|| AgentFlowError::Other(anyhow!("Provider '{}' missing base_url", provider_name)))?;
+        let base_url = provider.base_url.as_ref().ok_or_else(|| {
+            AgentFlowError::Other(anyhow!("Provider '{}' missing base_url", provider_name))
+        })?;
 
-        let api_key = provider.api_key.as_ref()
-            .ok_or_else(|| AgentFlowError::Other(anyhow!("Provider '{}' missing api_key", provider_name)))?;
+        let api_key = provider.api_key.as_ref().ok_or_else(|| {
+            AgentFlowError::Other(anyhow!("Provider '{}' missing api_key", provider_name))
+        })?;
 
         let mut json_config = JsonApiConfig {
             base_url: base_url.clone(),
             api_key: api_key.clone(),
             auth_header: provider.auth_header.clone(),
-            default_headers: provider.default_headers.clone().unwrap_or_default(),
+            default_headers: provider.default_headers.clone().unwrap_or_else(HashMap::new),
             endpoints: HashMap::new(),
         };
 
         if let Some(ref endpoints) = provider.endpoints {
             for (name, endpoint) in endpoints {
-                json_config.endpoints.insert(name.clone(), super::json_config::EndpointConfig {
-                    path: endpoint.path.clone(),
-                    method: endpoint.method.clone(),
-                    default_headers: endpoint.default_headers.clone(),
-                    response_transform: None,
-                });
+                json_config.endpoints.insert(
+                    name.clone(),
+                    super::json_config::EndpointConfig {
+                        path: endpoint.path.clone(),
+                        method: endpoint.method.clone(),
+                        default_headers: endpoint.default_headers.clone(),
+                        response_transform: None,
+                    },
+                );
             }
         }
 
@@ -126,17 +134,21 @@ impl UnifiedJsonConfig {
     }
 
     pub fn execute_api_call(&self, category: &str, call_name: &str) -> Result<ApiCallRequest> {
-        let api_call = self.get_api_call(category, call_name)
-            .ok_or_else(|| AgentFlowError::Other(anyhow!("API call '{}/{}' not found", category, call_name)))?;
+        let api_call = self.get_api_call(category, call_name).ok_or_else(|| {
+            AgentFlowError::Other(anyhow!("API call '{}/{}' not found", category, call_name))
+        })?;
 
-        let provider = self.get_provider(&api_call.provider)
-            .ok_or_else(|| AgentFlowError::Other(anyhow!("Provider '{}' not found", api_call.provider)))?;
+        let provider = self.get_provider(&api_call.provider).ok_or_else(|| {
+            AgentFlowError::Other(anyhow!("Provider '{}' not found", api_call.provider))
+        })?;
 
         let endpoint_name = &api_call.endpoint;
         if let Some(ref endpoints) = provider.endpoints {
             if !endpoints.contains_key(endpoint_name) {
                 return Err(AgentFlowError::Other(anyhow!(
-                    "Endpoint '{}' not found in provider '{}'", endpoint_name, api_call.provider
+                    "Endpoint '{}' not found in provider '{}'",
+                    endpoint_name,
+                    api_call.provider
                 )));
             }
         }
@@ -187,11 +199,19 @@ impl UnifiedApiManager {
 
     pub async fn call(&self, category: &str, call_name: &str) -> Result<Value> {
         let api_call = self.config.execute_api_call(category, call_name)?;
-        let provider = self.config.get_api_call(category, call_name)
-            .ok_or_else(|| AgentFlowError::Other(anyhow!("API call '{}/{}' not found", category, call_name)))?;
-        
-        let client = self.get_client(&provider.provider)
-            .ok_or_else(|| AgentFlowError::Other(anyhow!("Client for provider '{}' not found", provider.provider)))?;
+        let provider = self
+            .config
+            .get_api_call(category, call_name)
+            .ok_or_else(|| {
+                AgentFlowError::Other(anyhow!("API call '{}/{}' not found", category, call_name))
+            })?;
+
+        let client = self.get_client(&provider.provider).ok_or_else(|| {
+            AgentFlowError::Other(anyhow!(
+                "Client for provider '{}' not found",
+                provider.provider
+            ))
+        })?;
 
         client.call(&api_call).await
     }
@@ -201,7 +221,10 @@ impl UnifiedApiManager {
         if parts.len() == 2 {
             self.call(parts[0], parts[1]).await
         } else {
-            Err(AgentFlowError::Other(anyhow!("Invalid API call name format: {}, expected 'category/name'", full_name)))
+            Err(AgentFlowError::Other(anyhow!(
+                "Invalid API call name format: {}, expected 'category/name'",
+                full_name
+            )))
         }
     }
 
@@ -209,4 +232,3 @@ impl UnifiedApiManager {
         &self.config
     }
 }
-
