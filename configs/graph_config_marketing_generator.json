@@ -1,0 +1,364 @@
+{
+  "name": "marketing_content_generator",
+  "version": "1.0",
+  "description": "智能营销内容生成系统 - 展示AgentFlow所有核心功能",
+  "nodes": [
+    {
+      "id": "agent_requirement_analyzer",
+      "type": "agent",
+      "config": {
+        "name": "requirement_analyzer",
+        "driver": "qwen",
+        "model": "qwen-max",
+        "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "role": "Requirement Analyzer",
+        "prompt": "Analyze the product information and extract key features. Identify target audience and suggest an appropriate tone. Return raw JSON only (no markdown): {\"target_audience\": \"audience type\", \"product_features\": [\"feature1\", \"feature2\"], \"tone_suggestion\": \"formal|casual|promotional\"}",
+        "api_key": "${QWEN_API_KEY}",
+        "intent": "analyze_requirements",
+        "service": "default_service",
+        "rules": {
+          "field_extraction": {
+            "target_audience": "target_audience",
+            "product_features": "product_features",
+            "tone_suggestion": "tone_suggestion"
+          }
+        }
+      },
+      "workflow": "workflow_marketing"
+    },
+    {
+      "id": "agent_smart_router",
+      "type": "agent",
+      "config": {
+        "name": "smart_router",
+        "driver": "qwen",
+        "model": "qwen-max",
+        "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "role": "Content Style Router",
+        "prompt": "Based on the analyzed requirements, determine the best marketing style. Return raw JSON only (no markdown): {\"style\": \"formal\"|\"casual\"|\"promotional\", \"reasoning\": \"brief explanation\"}",
+        "api_key": "${QWEN_API_KEY}",
+        "intent": "route_style",
+        "service": "default_service",
+        "rules": {
+          "field_extraction": {
+            "style": "style"
+          }
+        }
+      },
+      "workflow": "workflow_marketing"
+    },
+    {
+      "id": "agent_copywriter",
+      "type": "agent",
+      "config": {
+        "name": "copywriter",
+        "driver": "qwen",
+        "model": "qwen-max",
+        "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "role": "Marketing Copywriter",
+        "prompt": "Write compelling marketing copy based on the product features and target audience from previous analysis. Make it engaging and persuasive. Return raw JSON only (no markdown): {\"draft\": \"marketing copy content\", \"quality_score\": 0.0-1.0}",
+        "api_key": "${QWEN_API_KEY}",
+        "intent": "generate_copy",
+        "service": "default_service",
+        "rules": {
+          "field_extraction": {
+            "draft": "draft",
+            "quality_score": "quality_score"
+          }
+        }
+      },
+      "workflow": "workflow_marketing"
+    },
+    {
+      "id": "agent_copy_polisher",
+      "type": "agent",
+      "config": {
+        "name": "copy_polisher",
+        "driver": "qwen",
+        "model": "qwen-max",
+        "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "role": "Copy Editor",
+        "prompt": "Polish and refine the approved marketing copy. Enhance language appeal and fix any minor issues. Return raw JSON only (no markdown): {\"polished_copy\": \"refined content\"}",
+        "api_key": "${QWEN_API_KEY}",
+        "intent": "polish_copy",
+        "service": "default_service",
+        "rules": {
+          "field_extraction": {
+            "polished_copy": "polished_copy"
+          }
+        }
+      },
+      "workflow": "workflow_marketing"
+    },
+    {
+      "id": "agent_risk_reviewer",
+      "type": "agent",
+      "config": {
+        "name": "risk_reviewer",
+        "driver": "qwen",
+        "model": "qwen-max",
+        "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "role": "Compliance Reviewer",
+        "prompt": "Review the marketing copy for potential risks: false claims, sensitive words, or exaggerated statements. Return raw JSON only (no markdown): {\"risk_level\": \"low\"|\"high\", \"concerns\": [\"concern1\", \"concern2\"]}",
+        "api_key": "${QWEN_API_KEY}",
+        "intent": "review_risk",
+        "service": "default_service",
+        "rules": {
+          "field_extraction": {
+            "risk_level": "risk_level"
+          }
+        }
+      },
+      "workflow": "workflow_marketing"
+    },
+    {
+      "id": "agent_chinese_generator",
+      "type": "agent",
+      "config": {
+        "name": "chinese_generator",
+        "driver": "qwen",
+        "model": "qwen-max",
+        "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "role": "Chinese Content Specialist",
+        "prompt": "Generate the final Chinese version of the marketing copy based on previous polished content. Ensure cultural appropriateness. Return raw JSON only (no markdown): {\"language\": \"zh\", \"content\": \"Chinese marketing copy\"}",
+        "api_key": "${QWEN_API_KEY}",
+        "intent": "generate_chinese",
+        "service": "default_service",
+        "rules": {
+          "field_extraction": {
+            "zh_content": "content"
+          }
+        }
+      },
+      "workflow": "workflow_marketing"
+    },
+    {
+      "id": "agent_english_generator",
+      "type": "agent",
+      "config": {
+        "name": "english_generator",
+        "driver": "qwen",
+        "model": "qwen-max",
+        "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "role": "English Content Specialist",
+        "prompt": "Translate the marketing copy to English. Maintain the marketing appeal and adapt for English-speaking audiences. Return raw JSON only (no markdown): {\"language\": \"en\", \"content\": \"English marketing copy\"}",
+        "api_key": "${QWEN_API_KEY}",
+        "intent": "generate_english",
+        "service": "default_service",
+        "rules": {
+          "field_extraction": {
+            "en_content": "content"
+          }
+        }
+      },
+      "workflow": "workflow_marketing"
+    },
+    {
+      "id": "agent_japanese_generator",
+      "type": "agent",
+      "config": {
+        "name": "japanese_generator",
+        "driver": "qwen",
+        "model": "qwen-max",
+        "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "role": "Japanese Content Specialist",
+        "prompt": "Translate the marketing copy to Japanese. Ensure polite and appropriate business language for Japanese market. Return raw JSON only (no markdown): {\"language\": \"ja\", \"content\": \"Japanese marketing copy\"}",
+        "api_key": "${QWEN_API_KEY}",
+        "intent": "generate_japanese",
+        "service": "default_service",
+        "rules": {
+          "field_extraction": {
+            "ja_content": "content"
+          }
+        }
+      },
+      "workflow": "workflow_marketing"
+    },
+    {
+      "id": "node_multilingual_join",
+      "type": "join_node",
+      "config": {
+        "strategy": "all",
+        "inbound": ["agent_chinese_generator", "agent_english_generator", "agent_japanese_generator"]
+      },
+      "workflow": "workflow_marketing"
+    },
+    {
+      "id": "agent_image_prompt_generator",
+      "type": "agent",
+      "config": {
+        "name": "image_prompt_generator",
+        "driver": "qwen",
+        "model": "qwen-max",
+        "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "role": "Image Prompt Specialist",
+        "prompt": "Based on the marketing copy and product features, generate a detailed image prompt for AI image generation. Make it vivid, specific, and suitable for product photography. Return raw JSON only (no markdown): {\"image_prompt\": \"detailed prompt in English\", \"style\": \"<auto>\", \"size\": \"1024*1024\"}",
+        "api_key": "${QWEN_API_KEY}",
+        "intent": "generate_image_prompt",
+        "service": "default_service",
+        "rules": {
+          "field_extraction": {
+            "image_prompt": "image_prompt",
+            "image_style": "style",
+            "image_size": "size"
+          }
+        }
+      },
+      "workflow": "workflow_marketing"
+    },
+    {
+      "id": "agent_image_generator",
+      "type": "agent",
+      "config": {
+        "name": "image_generator",
+        "driver": "qwen",
+        "model": "wan2.5-t2i-preview",
+        "endpoint": "https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis",
+        "api_key": "${QWEN_API_KEY}",
+        "role": "Image Generator",
+        "prompt": "Extract the image_prompt from conversation history and generate the image.",
+        "intent": "generate_image",
+        "service": "default_service",
+        "metadata": {
+          "api_format": "qwen"
+        }
+      },
+      "workflow": "workflow_marketing"
+    },
+    {
+      "id": "tool_downloader",
+      "type": "tool_node",
+      "config": {
+        "pipeline": "download_file",
+        "params": {
+          "save_dir": "generated_images",
+          "filename_prefix": "marketing"
+        }
+      },
+      "workflow": "workflow_marketing"
+    },
+    {
+      "id": "agent_result_summarizer",
+      "type": "agent",
+      "config": {
+        "name": "result_summarizer",
+        "driver": "qwen",
+        "model": "qwen-max",
+        "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "role": "Results Compiler",
+        "prompt": "Compile all the marketing content generation results from the conversation history. Include all language versions, image prompt, generated image URL and downloaded file path. Return raw JSON only (no markdown): {\"summary\": {\"style\": \"formal|casual|promotional\", \"quality_score\": 0.0-1.0, \"risk_level\": \"low|high\"}, \"content\": {\"zh\": \"Chinese copy\", \"en\": \"English copy\", \"ja\": \"Japanese copy\"}, \"image_prompt\": \"prompt\", \"image_url\": \"url if generated\", \"downloaded_file\": \"filepath if downloaded\", \"metadata\": {\"total_iterations\": number}}",
+        "api_key": "${QWEN_API_KEY}",
+        "intent": "summarize",
+        "service": "default_service"
+      },
+      "workflow": "workflow_marketing"
+    },
+    {
+      "id": "node_terminal",
+      "type": "terminal_node",
+      "config": {},
+      "workflow": "workflow_marketing"
+    },
+    {
+      "id": "workflow_marketing",
+      "type": "workflow",
+      "config": {
+        "name": "marketing_content_flow",
+        "start": "agent_requirement_analyzer"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "agent_requirement_analyzer",
+      "to": "agent_smart_router",
+      "type": "always",
+      "workflow": "workflow_marketing"
+    },
+    {
+      "from": "agent_smart_router",
+      "to": "agent_copywriter",
+      "type": "always",
+      "workflow": "workflow_marketing"
+    },
+    {
+      "from": "agent_copywriter",
+      "to": "agent_copy_polisher",
+      "type": "always",
+      "workflow": "workflow_marketing"
+    },
+    {
+      "from": "agent_copy_polisher",
+      "to": "agent_risk_reviewer",
+      "type": "always",
+      "workflow": "workflow_marketing"
+    },
+    {
+      "from": "agent_risk_reviewer",
+      "to": "agent_chinese_generator",
+      "type": "always",
+      "workflow": "workflow_marketing"
+    },
+    {
+      "from": "agent_risk_reviewer",
+      "to": "agent_english_generator",
+      "type": "always",
+      "workflow": "workflow_marketing"
+    },
+    {
+      "from": "agent_risk_reviewer",
+      "to": "agent_japanese_generator",
+      "type": "always",
+      "workflow": "workflow_marketing"
+    },
+    {
+      "from": "agent_chinese_generator",
+      "to": "node_multilingual_join",
+      "type": "always",
+      "workflow": "workflow_marketing"
+    },
+    {
+      "from": "agent_english_generator",
+      "to": "node_multilingual_join",
+      "type": "always",
+      "workflow": "workflow_marketing"
+    },
+    {
+      "from": "agent_japanese_generator",
+      "to": "node_multilingual_join",
+      "type": "always",
+      "workflow": "workflow_marketing"
+    },
+    {
+      "from": "node_multilingual_join",
+      "to": "agent_image_prompt_generator",
+      "type": "always",
+      "workflow": "workflow_marketing"
+    },
+    {
+      "from": "agent_image_prompt_generator",
+      "to": "agent_image_generator",
+      "type": "always",
+      "workflow": "workflow_marketing"
+    },
+    {
+      "from": "agent_image_generator",
+      "to": "tool_downloader",
+      "type": "always",
+      "workflow": "workflow_marketing"
+    },
+    {
+      "from": "tool_downloader",
+      "to": "agent_result_summarizer",
+      "type": "always",
+      "workflow": "workflow_marketing"
+    },
+    {
+      "from": "agent_result_summarizer",
+      "to": "node_terminal",
+      "type": "always",
+      "workflow": "workflow_marketing"
+    }
+  ]
+}
+
