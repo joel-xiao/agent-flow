@@ -35,3 +35,4 @@ test_*.png
 *.so
 *.dylib
 *.dll
+generated_images/
