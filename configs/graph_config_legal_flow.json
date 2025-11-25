@@ -119,7 +119,7 @@
         "model": "qwen-max",
         "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
         "role": "Managing Partner",
-        "prompt": "Review the legal draft. Check for professionalism, legal accuracy, and tone. If it's good, approve it. If not, provide critique. Return RAW JSON ONLY (no markdown): {\"status\": \"approved\"|\"revise\", \"critique\": \"Feedback...\", \"final_score\": 0-10}",
+        "prompt": "CRITICAL: You are a JSON API. Review the legal draft. Check for professionalism, legal accuracy, and tone. If it's good, approve it. If not, provide critique. \n\nYOU MUST RETURN RAW JSON ONLY (NO MARKDOWN, NO EXPLANATION):\n{\"status\": \"approved\"|\"revise\", \"critique\": \"Feedback...\", \"final_score\": 0-10}\n\nDO NOT OUTPUT ANY TEXT OUTSIDE THE JSON OBJECT.",
         "api_key": "${QWEN_API_KEY}",
         "intent": "review_draft",
         "service": "default_service",
@@ -147,8 +147,7 @@
           "key": "review_status",
           "value": "revise"
         },
-        "max_iterations": 2,
-        "exit": "agent_client_brief_en"
+        "max_iterations": 2
       },
       "workflow": "workflow_legal"
     },
