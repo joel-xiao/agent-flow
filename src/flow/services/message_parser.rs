@@ -74,7 +74,10 @@ impl MessageParser {
         for field_name in fields_to_check {
             if let Some(input) = payload
                 .get(field_name)
-                .and_then(|v| v.as_str().map(|s| s.to_string()))
+                .map(|v| match v {
+                    Value::String(s) => s.clone(),
+                    _ => v.to_string(),
+                })
             {
                 return Ok(input);
             }
@@ -85,7 +88,10 @@ impl MessageParser {
                 for field_name in fields_to_check {
                     if let Some(input) = prev_payload
                         .get(field_name)
-                        .and_then(|v| v.as_str().map(|s| s.to_string()))
+                        .map(|v| match v {
+                            Value::String(s) => s.clone(),
+                            _ => v.to_string(),
+                        })
                     {
                         return Ok(input);
                     }
