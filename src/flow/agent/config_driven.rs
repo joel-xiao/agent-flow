@@ -114,29 +114,29 @@ impl Agent for ConfigDrivenAgent {
                 if let Some(extract_map) = field_extraction_rules.and_then(|r| r.extract_to_state.as_ref()) {
                     for (response_field, state_key) in extract_map {
                         if let Some(value) = response_json.get(response_field) {
-                            let value_str = match value {
-                                Value::String(s) => s.clone(),
-                                Value::Number(n) => n.to_string(),
-                                Value::Bool(b) => b.to_string(),
-                                _ => value.to_string(),
-                            };
-                            let value_str_clone = value_str.clone();
+                        let value_str = match value {
+                            Value::String(s) => s.clone(),
+                            Value::Number(n) => n.to_string(),
+                            Value::Bool(b) => b.to_string(),
+                            _ => value.to_string(),
+                        };
+                        let value_str_clone = value_str.clone();
                             match ctx.flow_ctx.store().set(state_key, value_str).await {
-                                Ok(_) => {
-                                    tracing::debug!(
-                                        agent = %self.profile.name,
+                            Ok(_) => {
+                                tracing::debug!(
+                                    agent = %self.profile.name,
                                         key = %state_key,
-                                        value = %value_str_clone,
-                                        "Extracted field and set to state store"
-                                    );
-                                }
-                                Err(e) => {
-                                    tracing::warn!(
-                                        agent = %self.profile.name,
+                                    value = %value_str_clone,
+                                    "Extracted field and set to state store"
+                                );
+                            }
+                            Err(e) => {
+                                tracing::warn!(
+                                    agent = %self.profile.name,
                                         key = %state_key,
-                                        error = ?e,
-                                        "Failed to set extracted field to state store"
-                                    );
+                                    error = ?e,
+                                    "Failed to set extracted field to state store"
+                                );
                                 }
                             }
                         }
