@@ -1,5 +1,39 @@
 # 更新日志 / Changelog
 
+## [Core & Examples Update] - 2024-11-25
+
+### ✨ 核心功能增强 (Core Enhancements)
+
+**1. Prompt Context Injection (上下文注入)**
+- `PromptBuildingRules` 新增配置项：
+  - `include_store_keys`: 允许指定一组 State Store 变量键名，系统会自动提取这些变量并注入到 Agent 的 System Prompt 中。
+  - `max_history_items`: 允许配置注入 Prompt 的历史消息数量（默认为 3）。
+- 解决了 Agent 之间非直接消息传递（通过 Shared State）的上下文感知问题。
+
+**2. Advanced Field Extraction (高级字段提取)**
+- `MessageParser` 增强：支持从 Payload 中提取非字符串类型的字段（自动转换为 JSON 字符串）。
+- 解决了复杂对象（如 `product_info`）无法作为 LLM 输入的问题。
+
+**3. Configurable Field Extraction (配置化字段提取)**
+- `FieldExtractionRules` 新增 `extract_to_state` 映射配置。
+- 支持完全通过 JSON 配置将 LLM 响应字段提取到 State Store，无需修改代码。
+
+### 🚀 示例应用升级 (Example Updates)
+
+**Marketing Content Generator (智能营销内容生成器)**
+- **流程重构**：升级为多角色协作的高级工作流。
+  - **Product Visualizer**: 专门负责分析产品视觉特征。
+  - **Creative Director**: 负责制定 Slogan 和视觉创意概念。
+  - **AI Visual Prompter**: 结合视觉特征和创意概念，生成专业的海报 Prompt。
+- **效果优化**：修复了“文不对题”和“产品缺失”的问题，能够生成高质量、符合产品特征的营销海报。
+- **配置更新**：`configs/graph_config_marketing_generator.json` 全面更新。
+
+### 🛠️ 代码清理与修复 (Cleanup & Fixes)
+
+- **移除废弃代码**：删除了 `ImageProcessor` 模块（设计不合理，功能已移至 Prompt Engineering 层）。
+- **修复硬编码**：移除了 Agent 中硬编码的业务字段，完全由配置驱动。
+- **修复编译错误**：修复了所有因重构引入的编译问题。
+
 ## [最近更新] - 2024-11-24
 
 ### 🗑️ 删除过期内容
