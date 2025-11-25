@@ -1,5 +1,29 @@
 # 更新日志 / Changelog
 
+## [LegalFlow Application] - 2024-11-25
+
+### 🆕 新增应用示例
+
+**LegalFlow - 智能法律案件评估与文书生成系统**
+- **完整功能展示**: 展示了 AgentFlow 框架的所有核心功能
+  - ✅ 智能案件分析与领域识别
+  - ✅ 图驱动条件路由（基于 State 变量）
+  - ✅ 多角色专业协作（10+ 专业角色）
+  - ✅ 循环质量审核机制（Loop Node）
+  - ✅ 并行多语言处理（Join Node）
+  - ✅ AI 可视化证据生成
+  - ✅ 工具集成（图片生成 + 文件下载）
+  - ✅ 状态共享与上下文注入
+- **技术亮点**:
+  - 使用条件边（Conditional Edges）实现确定性路由，避免 LLM 路由决策的不稳定性
+  - 完整的 `extract_to_state` 配置示例，展示状态管理最佳实践
+  - 循环节点（Loop Node）实现自动质量审核重试
+  - 并行节点（Join Node）实现多语言任务同步
+- **文件**:
+  - `examples/legal_flow_app.rs` - 应用入口
+  - `configs/graph_config_legal_flow.json` - 完整工作流配置
+  - `docs/智能法律案件评估与文书生成系统设计.md` - 详细设计文档
+
 ## [Core & Examples Update] - 2024-11-25
 
 ### ✨ 核心功能增强 (Core Enhancements)
