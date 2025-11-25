@@ -1,0 +1,428 @@
+{
+  "name": "legal_case_flow",
+  "version": "1.2",
+  "description": "智能法律案件评估与文书生成系统 (Config Fixed)",
+  "nodes": [
+    {
+      "id": "agent_case_intake",
+      "type": "agent",
+      "config": {
+        "name": "case_intake_specialist",
+        "driver": "qwen",
+        "model": "qwen-max",
+        "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "role": "Legal Intake Specialist",
+        "prompt": "TASK: Analyze legal case from input.\n1. Summarize 'case_facts'.\n2. Identify 'legal_domain' (civil/criminal/corporate).\n3. Extract 'client_goal'.\n\nRETURN JSON ONLY: {\"case_facts\": \"...\", \"legal_domain\": \"...\", \"client_goal\": \"...\"}",
+        "api_key": "${QWEN_API_KEY}",
+        "intent": "analyze_case",
+        "service": "default_service",
+        "rules": {
+          "field_extraction": {
+            "user_input_fields": ["goal"],
+            "extract_to_state": {
+              "case_facts": "case_facts",
+              "legal_domain": "legal_domain",
+              "client_goal": "client_goal"
+            }
+          }
+        }
+      },
+      "workflow": "workflow_legal"
+    },
+    {
+      "id": "agent_civil_litigator",
+      "type": "agent",
+      "config": {
+        "name": "civil_litigator",
+        "driver": "qwen",
+        "model": "qwen-max",
+        "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "role": "Senior Civil Litigator",
+        "prompt": "Draft a formal Legal Demand Letter based on the case facts. Be assertive but professional. Return RAW JSON ONLY (no markdown): {\"document_title\": \"Civil Demand Letter\", \"draft_content\": \"Full letter text...\"}",
+        "api_key": "${QWEN_API_KEY}",
+        "intent": "draft_civil",
+        "service": "default_service",
+        "rules": {
+          "field_extraction": {
+            "extract_to_state": {
+              "draft_content": "current_draft",
+              "document_title": "doc_title"
+            }
+          },
+          "prompt_building": {
+            "include_store_keys": ["case_facts", "client_goal"]
+          }
+        }
+      },
+      "workflow": "workflow_legal"
+    },
+    {
+      "id": "agent_criminal_defender",
+      "type": "agent",
+      "config": {
+        "name": "criminal_defender",
+        "driver": "qwen",
+        "model": "qwen-max",
+        "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "role": "Criminal Defense Attorney",
+        "prompt": "Draft a Legal Opinion Memo analyzing the defense strategy. Focus on reasonable doubt. Return JSON: {\"document_title\": \"Defense Strategy Memo\", \"draft_content\": \"...full text...\"}",
+        "api_key": "${QWEN_API_KEY}",
+        "intent": "draft_criminal",
+        "service": "default_service",
+        "rules": {
+          "field_extraction": {
+            "extract_to_state": {
+              "draft_content": "current_draft",
+              "document_title": "doc_title"
+            }
+          },
+          "prompt_building": {
+            "include_store_keys": ["case_facts", "client_goal"]
+          }
+        }
+      },
+      "workflow": "workflow_legal"
+    },
+    {
+      "id": "agent_corporate_counsel",
+      "type": "agent",
+      "config": {
+        "name": "corporate_counsel",
+        "driver": "qwen",
+        "model": "qwen-max",
+        "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "role": "Corporate Counsel",
+        "prompt": "Draft a Contract Amendment or Cease & Desist based on the facts. Return JSON: {\"document_title\": \"Corporate Legal Notice\", \"draft_content\": \"...full text...\"}",
+        "api_key": "${QWEN_API_KEY}",
+        "intent": "draft_corporate",
+        "service": "default_service",
+        "rules": {
+          "field_extraction": {
+            "extract_to_state": {
+              "draft_content": "current_draft",
+              "document_title": "doc_title"
+            }
+          },
+          "prompt_building": {
+            "include_store_keys": ["case_facts", "client_goal"]
+          }
+        }
+      },
+      "workflow": "workflow_legal"
+    },
+    {
+      "id": "agent_partner_review",
+      "type": "agent",
+      "config": {
+        "name": "managing_partner",
+        "driver": "qwen",
+        "model": "qwen-max",
+        "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "role": "Managing Partner",
+        "prompt": "Review the legal draft. Check for professionalism, legal accuracy, and tone. If it's good, approve it. If not, provide critique. Return RAW JSON ONLY (no markdown): {\"status\": \"approved\"|\"revise\", \"critique\": \"Feedback...\", \"final_score\": 0-10}",
+        "api_key": "${QWEN_API_KEY}",
+        "intent": "review_draft",
+        "service": "default_service",
+        "rules": {
+          "field_extraction": {
+            "extract_to_state": {
+              "status": "review_status",
+              "critique": "review_feedback"
+            }
+          },
+          "prompt_building": {
+            "include_store_keys": ["current_draft", "doc_title", "case_facts"]
+          }
+        }
+      },
+      "workflow": "workflow_legal"
+    },
+    {
+      "id": "loop_draft_revision",
+      "type": "loop_node",
+      "config": {
+        "entry": "agent_partner_review",
+        "condition": {
+          "type": "state_equals",
+          "key": "review_status",
+          "value": "revise"
+        },
+        "max_iterations": 2,
+        "exit": "node_parallel_client_brief"
+      },
+      "workflow": "workflow_legal"
+    },
+    {
+      "id": "agent_client_brief_en",
+      "type": "agent",
+      "config": {
+        "name": "client_liaison_en",
+        "driver": "qwen",
+        "model": "qwen-max",
+        "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "role": "Client Liaison",
+        "prompt": "Summarize the legal action for the client in simple ENGLISH. Return JSON: {\"brief_en\": \"...\"}",
+        "api_key": "${QWEN_API_KEY}",
+        "intent": "brief_en",
+        "service": "default_service",
+        "rules": {
+          "field_extraction": {
+            "extract_to_state": {
+              "brief_en": "client_brief_en"
+            }
+          },
+          "prompt_building": {
+            "include_store_keys": ["current_draft"]
+          }
+        }
+      },
+      "workflow": "workflow_legal"
+    },
+    {
+      "id": "agent_client_brief_cn",
+      "type": "agent",
+      "config": {
+        "name": "client_liaison_cn",
+        "driver": "qwen",
+        "model": "qwen-max",
+        "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "role": "Chinese Client Manager",
+        "prompt": "Summarize the legal action for the client in simple CHINESE. Return JSON: {\"brief_cn\": \"...\"}",
+        "api_key": "${QWEN_API_KEY}",
+        "intent": "brief_cn",
+        "service": "default_service",
+        "rules": {
+          "field_extraction": {
+            "extract_to_state": {
+              "brief_cn": "client_brief_cn"
+            }
+          },
+          "prompt_building": {
+            "include_store_keys": ["current_draft"]
+          }
+        }
+      },
+      "workflow": "workflow_legal"
+    },
+    {
+      "id": "node_parallel_client_brief",
+      "type": "join_node",
+      "config": {
+        "strategy": "all",
+        "inbound": ["agent_client_brief_en", "agent_client_brief_cn"]
+      },
+      "workflow": "workflow_legal"
+    },
+    {
+      "id": "agent_visual_evidence",
+      "type": "agent",
+      "config": {
+        "name": "forensic_artist",
+        "driver": "qwen",
+        "model": "qwen-max",
+        "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "role": "Forensic Artist",
+        "prompt": "Based on the case facts, describe a 'Demonstrative Evidence' diagram or courtroom visualization that explains the scenario (e.g., accident diagram, timeline, contract flow). Return JSON for image generation: {\"evidence_prompt\": \"A diagram showing...\", \"style\": \"line_art\"|\"realistic\"}",
+        "api_key": "${QWEN_API_KEY}",
+        "intent": "design_evidence",
+        "service": "default_service",
+        "rules": {
+          "field_extraction": {
+            "extract_to_state": {
+              "evidence_prompt": "image_prompt"
+            }
+          },
+          "prompt_building": {
+            "include_store_keys": ["case_facts"]
+          }
+        }
+      },
+      "workflow": "workflow_legal"
+    },
+    {
+      "id": "agent_evidence_generator",
+      "type": "agent",
+      "config": {
+        "name": "evidence_generator",
+        "driver": "qwen",
+        "model": "wan2.5-t2i-preview",
+        "endpoint": "https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis",
+        "api_key": "${QWEN_API_KEY}",
+        "role": "Evidence Generator",
+        "prompt": "Generate the visual evidence based on the prompt.",
+        "intent": "generate_evidence",
+        "service": "default_service",
+        "metadata": {
+          "api_format": "qwen"
+        },
+        "rules": {
+            "prompt_building": {
+                "include_store_keys": ["image_prompt"]
+            }
+        }
+      },
+      "workflow": "workflow_legal"
+    },
+    {
+      "id": "tool_save_evidence",
+      "type": "tool_node",
+      "config": {
+        "pipeline": "download_file",
+        "params": {
+          "save_dir": "legal_evidence",
+          "filename_prefix": "evidence"
+        }
+      },
+      "workflow": "workflow_legal"
+    },
+    {
+      "id": "agent_case_compiler",
+      "type": "agent",
+      "config": {
+        "name": "case_file_compiler",
+        "driver": "qwen",
+        "model": "qwen-max",
+        "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "role": "Legal Secretary",
+        "prompt": "Compile the final Case File. Include the official legal document, client briefs in both languages, and the reference to the visual evidence. Return raw JSON: {\"case_file\": {\"summary\": \"...\", \"documents\": {...}, \"visuals\": \"...\"}}",
+        "api_key": "${QWEN_API_KEY}",
+        "intent": "compile_file",
+        "service": "default_service",
+        "rules": {
+          "prompt_building": {
+            "max_history_items": 50,
+            "include_store_keys": ["doc_title", "current_draft", "client_brief_en", "client_brief_cn", "image_prompt", "case_facts"]
+          }
+        }
+      },
+      "workflow": "workflow_legal"
+    },
+    {
+      "id": "node_end",
+      "type": "terminal_node",
+      "config": {},
+      "workflow": "workflow_legal"
+    },
+    {
+      "id": "workflow_legal",
+      "type": "workflow",
+      "config": {
+        "name": "legal_processing_pipeline",
+        "start": "agent_case_intake"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "agent_case_intake",
+      "to": "agent_civil_litigator",
+      "type": "conditional",
+      "workflow": "workflow_legal",
+      "condition": {
+        "type": "state_equals",
+        "key": "legal_domain",
+        "value": "civil"
+      }
+    },
+    {
+      "from": "agent_case_intake",
+      "to": "agent_criminal_defender",
+      "type": "conditional",
+      "workflow": "workflow_legal",
+      "condition": {
+        "type": "state_equals",
+        "key": "legal_domain",
+        "value": "criminal"
+      }
+    },
+    {
+      "from": "agent_case_intake",
+      "to": "agent_corporate_counsel",
+      "type": "conditional",
+      "workflow": "workflow_legal",
+      "condition": {
+        "type": "state_equals",
+        "key": "legal_domain",
+        "value": "corporate"
+      }
+    },
+    {
+      "from": "agent_civil_litigator",
+      "to": "agent_partner_review",
+      "type": "always",
+      "workflow": "workflow_legal"
+    },
+    {
+      "from": "agent_criminal_defender",
+      "to": "agent_partner_review",
+      "type": "always",
+      "workflow": "workflow_legal"
+    },
+    {
+      "from": "agent_corporate_counsel",
+      "to": "agent_partner_review",
+      "type": "always",
+      "workflow": "workflow_legal"
+    },
+    {
+      "from": "agent_partner_review",
+      "to": "loop_draft_revision",
+      "type": "always",
+      "workflow": "workflow_legal"
+    },
+    {
+      "from": "loop_draft_revision",
+      "to": "agent_client_brief_en",
+      "type": "always",
+      "workflow": "workflow_legal"
+    },
+    {
+      "from": "loop_draft_revision",
+      "to": "agent_client_brief_cn",
+      "type": "always",
+      "workflow": "workflow_legal"
+    },
+    {
+      "from": "agent_client_brief_en",
+      "to": "node_parallel_client_brief",
+      "type": "always",
+      "workflow": "workflow_legal"
+    },
+    {
+      "from": "agent_client_brief_cn",
+      "to": "node_parallel_client_brief",
+      "type": "always",
+      "workflow": "workflow_legal"
+    },
+    {
+      "from": "node_parallel_client_brief",
+      "to": "agent_visual_evidence",
+      "type": "always",
+      "workflow": "workflow_legal"
+    },
+    {
+      "from": "agent_visual_evidence",
+      "to": "agent_evidence_generator",
+      "type": "always",
+      "workflow": "workflow_legal"
+    },
+    {
+      "from": "agent_evidence_generator",
+      "to": "tool_save_evidence",
+      "type": "always",
+      "workflow": "workflow_legal"
+    },
+    {
+      "from": "tool_save_evidence",
+      "to": "agent_case_compiler",
+      "type": "always",
+      "workflow": "workflow_legal"
+    },
+    {
+      "from": "agent_case_compiler",
+      "to": "node_end",
+      "type": "always",
+      "workflow": "workflow_legal"
+    }
+  ]
+}
