@@ -4,6 +4,7 @@ use crate::flow::config::PromptBuildingRules;
 use crate::flow::constants::{prompt as prompt_consts, routing as routing_consts};
 use anyhow::anyhow;
 use serde_json::Value;
+use std::collections::HashMap;
 
 /// Prompt 构建服务
 pub struct PromptBuilder;
@@ -181,6 +182,7 @@ impl PromptBuilder {
         rules: Option<&PromptBuildingRules>,
         history: &[AgentMessage],
         max_history_items: usize,
+        store_variables: Option<&HashMap<String, String>>,
     ) -> Result<String> {
         let mut system_prompt = Self::build_system_prompt_with_routing(
             role,
@@ -192,8 +194,27 @@ impl PromptBuilder {
         )?;
 
         let history_context = Self::extract_history_context(history, max_history_items);
+        
+        let mut full_context = String::new();
+        
         if !history_context.is_empty() {
-            system_prompt.push_str(&history_context);
+            full_context.push_str(&history_context);
+        }
+
+        if let Some(vars) = store_variables {
+            if !vars.is_empty() {
+                let mut vars_context = String::new();
+                vars_context.push_str("\n\n<variables>\nShared State Variables:\n");
+                for (key, value) in vars {
+                    vars_context.push_str(&format!("{}: {}\n", key, value));
+                }
+                vars_context.push_str("</variables>");
+                full_context.push_str(&vars_context);
+            }
+        }
+
+        if !full_context.is_empty() {
+            system_prompt.push_str(&full_context);
         }
 
         Ok(system_prompt)

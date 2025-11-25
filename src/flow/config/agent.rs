@@ -104,6 +104,9 @@ pub struct PromptBuildingRules {
     /// 历史上下文最大条目数（可选，默认 3）
     #[serde(default)]
     pub max_history_items: Option<usize>,
+    /// 需要注入到 Prompt 的 State Store 变量键列表
+    #[serde(default)]
+    pub include_store_keys: Option<Vec<String>>,
 }
 
 fn default_role_template() -> String {

@@ -47,6 +47,21 @@ impl Agent for ConfigDrivenAgent {
         let steps_field = field_extraction_rules.map(|r| r.steps_field.as_str());
         let mut steps = MessageParser::extract_steps(&payload, &history, steps_field)?;
 
+        let mut store_variables = std::collections::HashMap::new();
+        if let Some(keys) = prompt_building_rules.and_then(|r| r.include_store_keys.as_ref()) {
+            for key in keys {
+                if let Ok(Some(value)) = ctx.flow_ctx.store().get(key).await {
+                    store_variables.insert(key.clone(), value);
+                }
+            }
+        }
+        
+        let store_variables_option = if store_variables.is_empty() {
+            None
+        } else {
+            Some(&store_variables)
+        };
+
         #[cfg(feature = "openai-client")]
         let response_content = LlmCaller::call_llm_or_get_raw(
             self.llm_client.as_ref(),
@@ -55,6 +70,7 @@ impl Agent for ConfigDrivenAgent {
             &self.profile,
             field_extraction_rules,
             prompt_building_rules,
+            store_variables_option,
         )
         .await?;
 

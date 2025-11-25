@@ -8,6 +8,7 @@ use crate::llm::DynLlmClient;
 use crate::LlmRequest;
 use futures::StreamExt;
 use serde_json::Value;
+use std::collections::HashMap;
 use std::io::{self, Write};
 
 /// LLM 调用服务
@@ -26,6 +27,7 @@ impl LlmCaller {
         profile: &AgentConfig,
         field_extraction_rules: Option<&FieldExtractionRules>,
         prompt_building_rules: Option<&PromptBuildingRules>,
+        store_variables: Option<&HashMap<String, String>>,
     ) -> Result<String> {
         if let Some(llm_client) = llm_client {
             Self::call_llm(
@@ -35,6 +37,7 @@ impl LlmCaller {
                 profile,
                 field_extraction_rules,
                 prompt_building_rules,
+                store_variables,
             )
             .await
         } else {
@@ -50,6 +53,7 @@ impl LlmCaller {
         profile: &AgentConfig,
         field_extraction_rules: Option<&FieldExtractionRules>,
         prompt_building_rules: Option<&PromptBuildingRules>,
+        store_variables: Option<&HashMap<String, String>>,
     ) -> Result<String> {
         let user_input_fields: Option<Vec<String>> =
             field_extraction_rules.map(|r| r.user_input_fields.clone());
@@ -69,6 +73,7 @@ impl LlmCaller {
             prompt_building_rules,
             history,
             max_history_items,
+            store_variables,
         )?;
 
         let temperature = prompt_building_rules
