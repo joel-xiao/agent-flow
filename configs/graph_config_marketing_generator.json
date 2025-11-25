@@ -11,14 +11,16 @@
         "driver": "qwen",
         "model": "qwen-max",
         "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-        "role": "Requirement Analyzer",
-        "prompt": "Analyze the product information and extract key features. Identify target audience and suggest an appropriate tone. Return raw JSON only (no markdown): {\"target_audience\": \"audience type\", \"product_features\": [\"feature1\", \"feature2\"], \"tone_suggestion\": \"formal|casual|promotional\"}",
+        "role": "Product Analyst & Visualizer",
+        "prompt": "Analyze the product. 1. Identify target audience. 2. Create a detailed VISUAL DESCRIPTION of the product (appearance, materials, form factor) for image generation. If not specified, infer a modern, high-quality look based on features. Return raw JSON only (no markdown): {\"target_audience\": \"audience\", \"visual_description\": \"Detailed visual description of the product...\", \"product_features\": [\"feat1\"], \"tone_suggestion\": \"formal|casual|promotional\"}",
         "api_key": "${QWEN_API_KEY}",
         "intent": "analyze_requirements",
         "service": "default_service",
         "rules": {
           "field_extraction": {
+            "user_input_fields": ["goal"],
             "target_audience": "target_audience",
+            "visual_description": "visual_description",
             "product_features": "product_features",
             "tone_suggestion": "tone_suggestion"
           }
@@ -55,14 +57,16 @@
         "driver": "qwen",
         "model": "qwen-max",
         "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-        "role": "Marketing Copywriter",
-        "prompt": "Write compelling marketing copy based on the product features and target audience from previous analysis. Make it engaging and persuasive. Return raw JSON only (no markdown): {\"draft\": \"marketing copy content\", \"quality_score\": 0.0-1.0}",
+        "role": "Creative Director & Copywriter",
+        "prompt": "Based on the product and audience: 1. Write a catchy SLOGAN (max 5 words). 2. Write a short marketing COPY. 3. Propose a POSTER VISUAL CONCEPT that features the product prominently (e.g. 'Close up of the watch with water splashes'). Return raw JSON only (no markdown): {\"draft\": \"marketing copy content\", \"slogan\": \"Catchy Slogan\", \"visual_concept\": \"Description of the poster visual...\", \"quality_score\": 0.0-1.0}",
         "api_key": "${QWEN_API_KEY}",
         "intent": "generate_copy",
         "service": "default_service",
         "rules": {
           "field_extraction": {
             "draft": "draft",
+            "slogan": "slogan",
+            "visual_concept": "visual_concept",
             "quality_score": "quality_score"
           }
         }
@@ -126,7 +130,7 @@
         "service": "default_service",
         "rules": {
           "field_extraction": {
-            "zh_content": "content"
+            "content": "zh_content"
           }
         }
       },
@@ -147,7 +151,7 @@
         "service": "default_service",
         "rules": {
           "field_extraction": {
-            "en_content": "content"
+            "content": "en_content"
           }
         }
       },
@@ -168,7 +172,7 @@
         "service": "default_service",
         "rules": {
           "field_extraction": {
-            "ja_content": "content"
+            "content": "ja_content"
           }
         }
       },
@@ -191,8 +195,8 @@
         "driver": "qwen",
         "model": "qwen-max",
         "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-        "role": "Image Prompt Specialist",
-        "prompt": "Based on the marketing copy and product features, generate a detailed image prompt for AI image generation. Make it vivid, specific, and suitable for product photography. Return raw JSON only (no markdown): {\"image_prompt\": \"detailed prompt in English\", \"style\": \"<auto>\", \"size\": \"1024*1024\"}",
+        "role": "AI Visual Prompter",
+        "prompt": "Create a high-quality image prompt for a PRODUCT POSTER. \nCombine:\n1. PRODUCT: {visual_description} (From analysis)\n2. SCENE: {visual_concept} (From creative director)\n\nEnsure the product is the main focus. Return raw JSON only (no markdown): {\"image_prompt\": \"detailed poster description...\", \"style\": \"<auto>\", \"size\": \"1024*1024\"}",
         "api_key": "${QWEN_API_KEY}",
         "intent": "generate_image_prompt",
         "service": "default_service",
@@ -201,6 +205,9 @@
             "image_prompt": "image_prompt",
             "image_style": "style",
             "image_size": "size"
+          },
+          "prompt_building": {
+            "include_store_keys": ["slogan", "style", "visual_description", "visual_concept"]
           }
         }
       },
@@ -246,10 +253,16 @@
         "model": "qwen-max",
         "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
         "role": "Results Compiler",
-        "prompt": "Compile all the marketing content generation results from the conversation history. Include all language versions, image prompt, generated image URL and downloaded file path. Return raw JSON only (no markdown): {\"summary\": {\"style\": \"formal|casual|promotional\", \"quality_score\": 0.0-1.0, \"risk_level\": \"low|high\"}, \"content\": {\"zh\": \"Chinese copy\", \"en\": \"English copy\", \"ja\": \"Japanese copy\"}, \"image_prompt\": \"prompt\", \"image_url\": \"url if generated\", \"downloaded_file\": \"filepath if downloaded\", \"metadata\": {\"total_iterations\": number}}",
+        "prompt": "STRICTLY RETURN JSON ONLY (NO MARKDOWN BLOCK). Compile all results including the SLOGAN. Include all language versions, image prompt, generated image URL and downloaded file path. Return raw JSON only: {\"slogan\": \"slogan\", \"summary\": {\"style\": \"formal|casual|promotional\", \"quality_score\": 0.0-1.0, \"risk_level\": \"low|high\"}, \"content\": {\"zh\": \"Chinese copy\", \"en\": \"English copy\", \"ja\": \"Japanese copy\"}, \"image_prompt\": \"prompt\", \"image_url\": \"url if generated\", \"downloaded_file\": \"filepath if downloaded\", \"metadata\": {\"total_iterations\": number}}",
         "api_key": "${QWEN_API_KEY}",
         "intent": "summarize",
-        "service": "default_service"
+        "service": "default_service",
+        "rules": {
+          "prompt_building": {
+            "max_history_items": 20,
+            "include_store_keys": ["zh_content", "en_content", "ja_content", "image_prompt", "style", "size", "slogan", "visual_concept"]
+          }
+        }
       },
       "workflow": "workflow_marketing"
     },

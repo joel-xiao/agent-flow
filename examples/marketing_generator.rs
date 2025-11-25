@@ -54,17 +54,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_tool_orchestrator(Arc::new(orchestrator));
 
     // 5. 准备输入数据
+    let product_info = serde_json::json!({
+        "name": "智能健康手环 ProFit X1",
+        "category": "智能穿戴设备",
+        "features": ["24小时心率监测", "血氧饱和度检测", "50米防水", "30天超长续航"],
+        "price": "¥599",
+        "target_market": "健身爱好者"
+    });
+
     let input_data = serde_json::json!({
         "user": "Marketing Team",
-        "goal": "Generate marketing content",
+        "goal": format!("Generate marketing content for product: {}", product_info),
         "steps": [],
-        "product": {
-            "name": "智能健康手环 ProFit X1",
-            "category": "智能穿戴设备",
-            "features": ["24小时心率监测", "血氧饱和度检测", "50米防水", "30天超长续航"],
-            "price": "¥599",
-            "target_market": "健身爱好者"
-        }
+        "product": product_info
     });
 
     let start_node = config_value["nodes"]
