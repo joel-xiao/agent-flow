@@ -1,7 +1,7 @@
 {
   "name": "legal_case_flow",
-  "version": "1.3",
-  "description": "智能法律案件评估与文书生成系统 - 按照文档设计完整实现",
+  "version": "1.4",
+  "description": "智能法律案件评估与文书生成系统 - 完整实现（包含案卷图片生成）",
   "nodes": [
     {
       "id": "agent_case_intake",
@@ -50,7 +50,7 @@
             }
           },
           "prompt_building": {
-            "max_history_items": 0
+            "include_store_keys": ["case_facts", "client_goal"]
           }
         }
       },
@@ -77,7 +77,7 @@
             }
           },
           "prompt_building": {
-            "max_history_items": 0
+            "include_store_keys": ["case_facts", "client_goal"]
           }
         }
       },
@@ -104,7 +104,7 @@
             }
           },
           "prompt_building": {
-            "max_history_items": 0
+            "include_store_keys": ["case_facts", "client_goal"]
           }
         }
       },
@@ -131,7 +131,7 @@
             }
           },
           "prompt_building": {
-            "max_history_items": 2
+            "include_store_keys": ["current_draft", "doc_title", "case_facts"]
           }
         }
       },
@@ -171,7 +171,7 @@
             }
           },
           "prompt_building": {
-            "max_history_items": 0
+            "include_store_keys": ["current_draft"]
           }
         }
       },
@@ -197,7 +197,7 @@
             }
           },
           "prompt_building": {
-            "max_history_items": 0
+            "include_store_keys": ["current_draft"]
           }
         }
       },
@@ -232,7 +232,7 @@
             }
           },
           "prompt_building": {
-            "max_history_items": 0
+            "include_store_keys": ["case_facts"]
           }
         }
       },
@@ -256,7 +256,7 @@
         },
         "rules": {
             "prompt_building": {
-                "max_history_items": 0
+                "include_store_keys": ["image_prompt"]
             }
         }
       },
@@ -288,10 +288,77 @@
         "intent": "compile_file",
         "service": "default_service",
         "rules": {
+          "field_extraction": {
+            "extract_to_state": {
+              "case_file": "final_case_file"
+            }
+          },
           "prompt_building": {
             "max_history_items": 50,
             "include_store_keys": ["doc_title", "current_draft", "client_brief_en", "client_brief_cn", "image_prompt", "case_facts"]
           }
+        }
+      },
+      "workflow": "workflow_legal"
+    },
+    {
+      "id": "agent_case_file_image_prompt",
+      "type": "agent",
+      "config": {
+        "name": "case_file_image_prompt_generator",
+        "driver": "qwen",
+        "model": "qwen-max",
+        "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "role": "Case File Visual Designer",
+        "prompt": "Design an image prompt for a professional legal case file document. The image should show a formal case file folder or document with key information visible. Return raw JSON only (no markdown): {\"case_file_image_prompt\": \"A professional legal case file...\", \"style\": \"document\"|\"infographic\"}",
+        "api_key": "${QWEN_API_KEY}",
+        "intent": "design_case_file_image",
+        "service": "default_service",
+        "rules": {
+          "field_extraction": {
+            "extract_to_state": {
+              "case_file_image_prompt": "case_file_image_prompt"
+            }
+          },
+          "prompt_building": {
+            "include_store_keys": ["final_case_file", "doc_title", "case_facts"]
+          }
+        }
+      },
+      "workflow": "workflow_legal"
+    },
+    {
+      "id": "agent_case_file_image_generator",
+      "type": "agent",
+      "config": {
+        "name": "case_file_image_generator",
+        "driver": "qwen",
+        "model": "wan2.5-t2i-preview",
+        "endpoint": "https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis",
+        "api_key": "${QWEN_API_KEY}",
+        "role": "Case File Image Generator",
+        "prompt": "Generate the case file image based on the prompt.",
+        "intent": "generate_case_file_image",
+        "service": "default_service",
+        "metadata": {
+          "api_format": "qwen"
+        },
+        "rules": {
+            "prompt_building": {
+                "include_store_keys": ["case_file_image_prompt"]
+            }
+        }
+      },
+      "workflow": "workflow_legal"
+    },
+    {
+      "id": "tool_save_case_file_image",
+      "type": "tool_node",
+      "config": {
+        "pipeline": "download_file",
+        "params": {
+          "save_dir": "legal_evidence",
+          "filename_prefix": "case_file"
         }
       },
       "workflow": "workflow_legal"
@@ -419,6 +486,24 @@
     },
     {
       "from": "agent_case_compiler",
+      "to": "agent_case_file_image_prompt",
+      "type": "always",
+      "workflow": "workflow_legal"
+    },
+    {
+      "from": "agent_case_file_image_prompt",
+      "to": "agent_case_file_image_generator",
+      "type": "always",
+      "workflow": "workflow_legal"
+    },
+    {
+      "from": "agent_case_file_image_generator",
+      "to": "tool_save_case_file_image",
+      "type": "always",
+      "workflow": "workflow_legal"
+    },
+    {
+      "from": "tool_save_case_file_image",
       "to": "node_end",
       "type": "always",
       "workflow": "workflow_legal"
