@@ -12,7 +12,6 @@ use crate::{StructuredMessage, ToolInvocation};
 use crate::flow::config::agent::ToolDriverKind;
 use crate::flow::config::{AgentConfig, ToolConfig};
 use crate::flow::constants::{fields, routing as routing_consts};
-use crate::flow::services::image_processor::ImageProcessor;
 use crate::flow::services::llm_caller::LlmCaller;
 use crate::flow::services::message_parser::MessageParser;
 use crate::flow::services::routing::{clean_response, RouteMatcher};
@@ -43,41 +42,16 @@ impl Agent for ConfigDrivenAgent {
         let field_extraction_rules = rules.and_then(|r| r.field_extraction.as_ref());
         let prompt_building_rules = rules.and_then(|r| r.prompt_building.as_ref());
         let routing_rules = rules.and_then(|r| r.routing.as_ref());
-        let payload_building_rules = rules.and_then(|r| r.payload_building.as_ref());
 
         let mut payload = MessageParser::parse_payload(&message, &history)?;
         let steps_field = field_extraction_rules.map(|r| r.steps_field.as_str());
         let mut steps = MessageParser::extract_steps(&payload, &history, steps_field)?;
-
-        let vision_keywords = payload_building_rules
-            .and_then(|r| r.image_processing.as_ref())
-            .map(|r| {
-                r.vision_keywords
-                    .iter()
-                    .map(|s| s.as_str())
-                    .collect::<Vec<_>>()
-            });
-        let is_vision_agent = ImageProcessor::is_vision_model(
-            self.profile.model.as_deref(),
-            vision_keywords.as_deref(),
-        );
-        let mut image_info = ImageProcessor::extract_image_info(&payload, is_vision_agent)?;
-
-        if let Some(path) = &image_info.path {
-            if let Ok(base64_data) = ImageProcessor::process_image_path(path) {
-                image_info.base64 = Some(base64_data);
-            }
-        }
-
-        let image_base64_final = ImageProcessor::get_final_base64(&image_info)?;
 
         #[cfg(feature = "openai-client")]
         let response_content = LlmCaller::call_llm_or_get_raw(
             self.llm_client.as_ref(),
             &payload,
             &history,
-            &image_info,
-            image_base64_final.clone(),
             &self.profile,
             field_extraction_rules,
             prompt_building_rules,
@@ -106,12 +80,6 @@ impl Agent for ConfigDrivenAgent {
         payload[fields::LAST_AGENT] = Value::String(self.profile.name.clone());
         payload[fields::RESPONSE] = Value::String(response_content.clone());
 
-        if is_vision_agent {
-            ImageProcessor::add_image_fields(&mut payload, &image_info);
-        } else {
-            ImageProcessor::remove_image_fields(&mut payload);
-        }
-
         if let Some(prompt) = &self.profile.prompt {
             payload[fields::PROMPT] = Value::String(prompt.clone());
         }
@@ -127,32 +95,33 @@ impl Agent for ConfigDrivenAgent {
 
         if let Ok(response_json) = serde_json::from_str::<Value>(&response_content_clean) {
             if response_json.is_object() {
-                let fields_to_extract = ["food_count", "route", "image_quality"];
-                for field_name in &fields_to_extract {
-                    if let Some(value) = response_json.get(field_name) {
-                        let value_str = match value {
-                            Value::String(s) => s.clone(),
-                            Value::Number(n) => n.to_string(),
-                            Value::Bool(b) => b.to_string(),
-                            _ => value.to_string(),
-                        };
-                        let value_str_clone = value_str.clone();
-                        match ctx.flow_ctx.store().set(field_name, value_str).await {
-                            Ok(_) => {
-                                tracing::debug!(
-                                    agent = %self.profile.name,
-                                    key = %field_name,
-                                    value = %value_str_clone,
-                                    "Extracted field and set to state store"
-                                );
-                            }
-                            Err(e) => {
-                                tracing::warn!(
-                                    agent = %self.profile.name,
-                                    key = %field_name,
-                                    error = ?e,
-                                    "Failed to set extracted field to state store"
-                                );
+                if let Some(extract_map) = field_extraction_rules.and_then(|r| r.extract_to_state.as_ref()) {
+                    for (response_field, state_key) in extract_map {
+                        if let Some(value) = response_json.get(response_field) {
+                            let value_str = match value {
+                                Value::String(s) => s.clone(),
+                                Value::Number(n) => n.to_string(),
+                                Value::Bool(b) => b.to_string(),
+                                _ => value.to_string(),
+                            };
+                            let value_str_clone = value_str.clone();
+                            match ctx.flow_ctx.store().set(state_key, value_str).await {
+                                Ok(_) => {
+                                    tracing::debug!(
+                                        agent = %self.profile.name,
+                                        key = %state_key,
+                                        value = %value_str_clone,
+                                        "Extracted field and set to state store"
+                                    );
+                                }
+                                Err(e) => {
+                                    tracing::warn!(
+                                        agent = %self.profile.name,
+                                        key = %state_key,
+                                        error = ?e,
+                                        "Failed to set extracted field to state store"
+                                    );
+                                }
                             }
                         }
                     }

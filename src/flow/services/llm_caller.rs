@@ -1,4 +1,3 @@
-use super::image_processor::ImageInfo;
 use super::message_parser::MessageParser;
 use super::prompt_builder::PromptBuilder;
 use crate::agent::AgentMessage;
@@ -24,8 +23,6 @@ impl LlmCaller {
         llm_client: Option<&DynLlmClient>,
         payload: &Value,
         history: &[AgentMessage],
-        image_info: &ImageInfo,
-        image_base64_final: Option<String>,
         profile: &AgentConfig,
         field_extraction_rules: Option<&FieldExtractionRules>,
         prompt_building_rules: Option<&PromptBuildingRules>,
@@ -35,8 +32,6 @@ impl LlmCaller {
                 llm_client,
                 payload,
                 history,
-                image_info,
-                image_base64_final,
                 profile,
                 field_extraction_rules,
                 prompt_building_rules,
@@ -52,8 +47,6 @@ impl LlmCaller {
         llm_client: &DynLlmClient,
         payload: &Value,
         history: &[AgentMessage],
-        image_info: &ImageInfo,
-        image_base64_final: Option<String>,
         profile: &AgentConfig,
         field_extraction_rules: Option<&FieldExtractionRules>,
         prompt_building_rules: Option<&PromptBuildingRules>,
@@ -88,8 +81,8 @@ impl LlmCaller {
             user: user_input.to_string(),
             temperature,
             metadata: None,
-            image_url: image_info.url.clone(),
-            image_base64: image_base64_final,
+            image_url: None,
+            image_base64: None,
         };
 
         let role_name = profile.role.as_deref().unwrap_or(&profile.name);

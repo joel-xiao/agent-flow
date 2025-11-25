@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// Agent 业务规则配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26,6 +27,9 @@ pub struct FieldExtractionRules {
     /// Steps 字段名
     #[serde(default = "default_steps_field")]
     pub steps_field: String,
+    /// 需要提取并存储到 State 的字段映射 (Response Field -> State Key)
+    #[serde(default)]
+    pub extract_to_state: Option<HashMap<String, String>>,
 }
 
 fn default_user_input_fields() -> Vec<String> {

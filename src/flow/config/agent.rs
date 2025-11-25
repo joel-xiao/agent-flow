@@ -1,6 +1,7 @@
 use super::driver::AgentDriverKind;
 use serde::Deserialize;
 use serde_json::Value;
+use std::collections::HashMap;
 
 /// Agent 配置
 #[derive(Debug, Deserialize, Clone)]
@@ -70,6 +71,9 @@ pub struct FieldExtractionRules {
     /// Steps 字段名
     #[serde(default = "default_steps_field")]
     pub steps_field: String,
+    /// 需要提取并存储到 State 的字段映射 (Response Field -> State Key)
+    #[serde(default)]
+    pub extract_to_state: Option<HashMap<String, String>>,
 }
 
 fn default_user_input_fields() -> Vec<String> {
